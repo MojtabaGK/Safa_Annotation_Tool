@@ -344,6 +344,8 @@ class ProjectViewerApp(tk.Tk):
         else:
             messagebox.showerror("Error", "No image is available in the project you selected.")
             return
+        
+        messagebox.showinfo("Success", "Project opened successfully")
 
     def new_project(self):
         # Clear Project Data
@@ -847,7 +849,7 @@ class ProjectViewerApp(tk.Tk):
               
                 messagebox.showinfo("Success", "Project saved successfully.\n اگر قصد دارید پروژه‌ای را که اخیرا ذخیره کرده اید ویرایش کنید باید آنرا باز کنید. در غیر این صورت فایل قدیم پروژه ویرایش خواهد شد. مگر اینکه مبدا و مقصد یکی بوده باشند.")
             except Exception as e:
-                messagebox.showerror("Error", f"Could not save project file:\n{e}")
+                messagebox.showerror("Error", f"Could not save project file:\n{e}\nimage is: {img}")
         else:
             project_txt_path = None
         return project_txt_path
@@ -1231,7 +1233,7 @@ class ProjectViewerApp(tk.Tk):
 
             # آپدیت نقطه شروع برای حرکت بعدی
             self.drag_start = (event.x, event.y)
-            self.display_image()  # Your method to display the image
+            self.refresh_image()  # Your method to display the image
             self.draw_rectamgles()
 
     def end_drag(self, event):
@@ -1577,6 +1579,7 @@ class ProjectViewerApp(tk.Tk):
             self.Auto_save_project() # Auto save project for backup
 
     def display_image(self):
+        self.canvas.delete("all")
         if self.img_index != None:
             self.lb1.selection_clear(0, tk.END)    # Clear any previous selection
             self.lb1.selection_set(self.img_index)              # Select the first item (index 0)
@@ -1584,11 +1587,19 @@ class ProjectViewerApp(tk.Tk):
             self.lb1.see(self.img_index)                      # Scroll to make sure the first item is visible
             self.lb1.focus_set()                 # Set keyboard focus to the listbox for better UX                
 
-            self.canvas.delete("all")
             fname = self.project_data["images"][self.img_index]
             self.image_full_path = os.path.join(self.project_data["image_folder"], fname)
             try:
                 img = Image.open(self.image_full_path)
+                self.crop_img = img # تصویر با رزولوشن کامل برای نمایش در پنل ویرایش مستطیل
+                # کاهش بر اساس عرض مشخص (حفظ نسبت ابعاد)
+                target_width = 800  # پیکسل
+                width, height = img.size
+                ratio = target_width / width
+                new_height = int(height * ratio)
+
+                img = img.resize((target_width, new_height), Image.Resampling.LANCZOS)
+
                 self.original_image = img  # Store the original image for resizing later
                 # Get available display frame size
                 frame_width = self.left_frame.winfo_width()-25
@@ -1614,19 +1625,73 @@ class ProjectViewerApp(tk.Tk):
 
                 # Create PhotoImage and display
                 self.image_tk = ImageTk.PhotoImage(img)
-                self.canvas.delete("all")
-                self.canvas.create_image(0, 0, anchor='nw', image=self.image_tk)
+                # self.canvas.delete("all")
+                # self.canvas.create_image(0, 0, anchor='nw', image=self.image_tk)
 
                 # Save image visible area for future reference [x1, y1, x2, y2]
                 self.canvas.create_image(scaled_width//2, scaled_height//2, anchor=tk.CENTER, image=self.image_tk)
 
             except Exception as e:
-                self.canvas.delete("all")
+                # self.canvas.delete("all")
                 self.image_tk = None
                 messagebox.showerror(title="Image Load Error", message=f"Failed to load image:\n{e}")
         else:
-            self.canvas.delete("all")
+            # self.canvas.delete("all")
             self.image_tk = None
+
+    def refresh_image(self):
+        self.canvas.delete("all")
+        self.image_tk = None # reset and initialize
+
+        if self.img_index != None:
+            # self.lb1.selection_clear(0, tk.END)    # Clear any previous selection
+            # self.lb1.selection_set(self.img_index)              # Select the first item (index 0)
+            # self.lb1.activate(self.img_index)                  # Set the active item to the first one
+            # self.lb1.see(self.img_index)                      # Scroll to make sure the first item is visible
+            # self.lb1.focus_set()                 # Set keyboard focus to the listbox for better UX                
+
+            # self.canvas.delete("all")
+            # fname = self.project_data["images"][self.img_index]
+            # self.image_full_path = os.path.join(self.project_data["image_folder"], fname)
+            try:
+                # img = Image.open(self.image_full_path)
+                img = self.original_image # Store the original image for resizing later
+                # Get available display frame size
+                frame_width = self.left_frame.winfo_width()-25
+                frame_height = self.left_frame.winfo_height()-75
+
+                # crop image
+                img = img.crop((int(self.crop_cords[0]*img.width), int(self.crop_cords[1]*img.height), int(self.crop_cords[2]*img.width), int(self.crop_cords[3]*img.height)))  # Crop the image
+
+
+                # Calculate scale factor based on height only for uniform scaling without cropping
+                scale_factor_H = frame_height / img.height
+                scale_factor_W = frame_width / img.width
+                scale_factor = min(scale_factor_H, scale_factor_W) 
+                scaled_width = int(img.width * scale_factor)
+                scaled_height = int(img.height * scale_factor)
+
+                # Resize the canvas to exact image size (no extra padding)
+                self.canvas.config(width=scaled_width, height=scaled_height)
+
+                # Resize image using high-quality resampling
+                img = img.resize((scaled_width, scaled_height))
+
+
+                # Create PhotoImage and display
+                self.image_tk = ImageTk.PhotoImage(img)
+                # self.canvas.delete("all")
+                # self.canvas.create_image(0, 0, anchor='nw', image=self.image_tk)
+
+                # Save image visible area for future reference [x1, y1, x2, y2]
+                self.canvas.create_image(scaled_width//2, scaled_height//2, anchor=tk.CENTER, image=self.image_tk)
+
+            except Exception as e:
+                # self.canvas.delete("all")
+                # self.image_tk = None
+                messagebox.showerror(title="Image Load Error", message=f"Failed to load image:\n{e}")
+        # else:
+        #     self.image_tk = None
 
     def on_canvas_resize(self, event):
         self.canvas.delete("all")
@@ -1656,11 +1721,11 @@ class ProjectViewerApp(tk.Tk):
                 self.image_tk = ImageTk.PhotoImage(resized_image)  # Create a new PhotoImage from the resized image
 
                 # Clear the canvas and display the resized image
-                self.canvas.delete("all")
+                # self.canvas.delete("all")
                 self.canvas.create_image(scaled_width//2, scaled_height//2, anchor=tk.CENTER, image=self.image_tk)
 
                 # Save image visible area for future reference [x1, y1, x2, y2]
-                self.image_area = (0, 0, scaled_width, scaled_height)
+                # self.image_area = (0, 0, scaled_width, scaled_height)
 
             except Exception as e:
                 messagebox.showerror(title="Image Load Error", message=f"Failed to load image:\n{e}")
@@ -1769,7 +1834,7 @@ class ProjectViewerApp(tk.Tk):
             if rel_y1 > (1-Zoomwidth):
                 rel_y1 = (1-Zoomwidth)
             self.crop_cords = list((rel_x1, rel_y1, rel_x1+Zoomwidth, rel_y1+Zoomwidth))
-            self.display_image()  # Your method to display the image number self.img_index
+            self.refresh_image()  # Your method to display the image number self.img_index
             self.draw_rectamgles()
             self.rec_islock = self.IsLocks[self.rect_index]  # Copy for editing
             # self.populate_rectangle_list()
@@ -1955,7 +2020,7 @@ class ProjectViewerApp(tk.Tk):
 
             self.zoom_factor = 1 / ((self.crop_cords[2]-self.crop_cords[0]))
 
-            self.display_image()  # Your method to display the image
+            self.refresh_image()  # Your method to display the image
             self.draw_rectamgles()
 
     def Zoom_in(self):
@@ -1969,7 +2034,7 @@ class ProjectViewerApp(tk.Tk):
 
             self.zoom_factor = 1 / ((self.crop_cords[2]-self.crop_cords[0]))
 
-            self.display_image()  # Your method to display the image
+            self.refresh_image()  # Your method to display the image
             self.draw_rectamgles()
 
     def move_up(self):
@@ -1977,7 +2042,7 @@ class ProjectViewerApp(tk.Tk):
             Movement = min((self.crop_cords[3]-self.crop_cords[1])/10 , (self.crop_cords[1]) )
             self.crop_cords[1] -= Movement 
             self.crop_cords[3] -= Movement 
-            self.display_image()  # Your method to display the image
+            self.refresh_image()  # Your method to display the image
             self.draw_rectamgles()
 
     def move_down(self):
@@ -1985,7 +2050,7 @@ class ProjectViewerApp(tk.Tk):
             Movement = min((self.crop_cords[3]-self.crop_cords[1])/10 , (1-self.crop_cords[3]) )
             self.crop_cords[1] += Movement 
             self.crop_cords[3] += Movement 
-            self.display_image()  # Your method to display the image
+            self.refresh_image()  # Your method to display the image
             self.draw_rectamgles()
 
     def move_left(self):
@@ -1993,7 +2058,7 @@ class ProjectViewerApp(tk.Tk):
             Movement = min((self.crop_cords[2]-self.crop_cords[0])/10 , (self.crop_cords[0]) )
             self.crop_cords[0] -= Movement 
             self.crop_cords[2] -= Movement 
-            self.display_image()  # Your method to display the image
+            self.refresh_image()  # Your method to display the image
             self.draw_rectamgles()
 
     def move_right(self):
@@ -2001,7 +2066,7 @@ class ProjectViewerApp(tk.Tk):
             Movement = min((self.crop_cords[2]-self.crop_cords[0])/10 , (1-self.crop_cords[2]) )
             self.crop_cords[0] += Movement 
             self.crop_cords[2] += Movement 
-            self.display_image()  # Your method to display the image
+            self.refresh_image()  # Your method to display the image
             self.draw_rectamgles()
 
     # Command functions for arrow buttons
@@ -2207,8 +2272,6 @@ class ProjectViewerApp(tk.Tk):
             for i in range(len(self.project_data["IsLocks"][fname])):
                 self.project_data["IsLocks"][fname][i] = True
         self.populate_rectangle_list()
-        # self.display_image() # Your method to display the image number self.img_index
-        # self.draw_rectamgles()
         self.update_edit_panel_and_image_crop()
         if self.rect_index != None:
             self.disable_frame()
@@ -2218,8 +2281,6 @@ class ProjectViewerApp(tk.Tk):
             for i in range(len(self.project_data["IsLocks"][fname])):
                 self.project_data["IsLocks"][fname][i] = False
         self.populate_rectangle_list()
-        # self.display_image() # Your method to display the image number self.img_index
-        # self.draw_rectamgles()
         self.update_edit_panel_and_image_crop()
         if self.rect_index != None:
             self.enable_frame()
@@ -2286,9 +2347,9 @@ class ProjectViewerApp(tk.Tk):
 
         # تغییر ضریب بزرگنمایی بر اساس چرخش غربیلک
         if event.delta > 0:  # چرخش به سمت بالا
-            self.zoom_factor = (self.zoom_factor * 1.1)  # بزرگنمایی
+            self.zoom_factor = (self.zoom_factor * 1.2)  # بزرگنمایی
         else:  # چرخش به سمت پایین
-            self.zoom_factor = max(1, self.zoom_factor / 1.1)  # کوچک‌نمایی
+            self.zoom_factor = max(1, self.zoom_factor / 1.2)  # کوچک‌نمایی
 
         # محاسبه طول و عرض نسبی تصویر زوم شده
         zoomed_width = 1 / self.zoom_factor
@@ -2310,7 +2371,7 @@ class ProjectViewerApp(tk.Tk):
             self.crop_cords[1] -= (self.crop_cords[3] - 1)
             self.crop_cords[3] = 1
         # چاپ مختصات و ابعاد
-        self.display_image()  # Your method to display the image
+        self.refresh_image()  # Your method to display the image
         self.draw_rectamgles()
         self.update_rectangle_preview()
 
@@ -2325,7 +2386,7 @@ class ProjectViewerApp(tk.Tk):
 
             # Refresh rectangle list and redraw canvas rectangles
             self.populate_rectangle_list()
-            self.display_image()
+            # self.display_image()
             self.draw_rectamgles()
             self.canvas.itemconfig(self.rec_IDs[self.rect_index], outline="red")
 
@@ -2334,14 +2395,14 @@ class ProjectViewerApp(tk.Tk):
 
     def update_edit_panel_and_image_crop(self):
         if self.rect_index != None:
-            fname = self.project_data["images"][self.img_index]
-            self.image_full_path = os.path.join(self.project_data["image_folder"], fname)
-            try:
-                self.crop_img = Image.open(self.image_full_path)
-                self.original_image = self.crop_img  # Store the original image for resizing later
-            except Exception as e:
-                messagebox.showerror("Error", f"Could not load image:\n{e}")
-                return
+            # fname = self.project_data["images"][self.img_index]
+            # self.image_full_path = os.path.join(self.project_data["image_folder"], fname)
+            # try:
+            #     self.crop_img = Image.open(self.image_full_path)
+            # except Exception as e:
+            #     messagebox.showerror("Error", f"Could not load image:\n{e}")
+            #     return
+
             self.rectangles = self.project_data["rectangles"][self.project_data["images"][self.img_index]]
             self.IsLocks = self.project_data["IsLocks"][self.project_data["images"][self.img_index]]
             self.Labels = self.project_data["Labels"][self.project_data["images"][self.img_index]]
@@ -2350,6 +2411,7 @@ class ProjectViewerApp(tk.Tk):
             self.Rec_Label = self.Labels[self.rect_index]  # Copy for editing
             # Crop the image based on rectangle coordinates
             x1, y1, x2, y2 = self.coords
+            # self.crop_img در تابع display_image ایجاد شده است و در رزولوشن کامل است
             img_width, img_height = self.crop_img.size
 
             
