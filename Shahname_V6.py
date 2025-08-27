@@ -2067,7 +2067,7 @@ class ProjectViewerApp(tk.Tk):
     # Command functions for arrow buttons
     def move_top_up(self):
         current_time = time.time()
-        if current_time - self.last_zoom_time < 0.3:  # محدودیت 2 کلیک بر ثانیه
+        if current_time - self.last_zoom_time < 0.25:  # محدودیت 2 کلیک بر ثانیه
             self.delta_far_height = self.delta_far_height * 4
         self.last_zoom_time = current_time
 
@@ -2077,7 +2077,7 @@ class ProjectViewerApp(tk.Tk):
 
     def move_top_down(self):
         current_time = time.time()
-        if current_time - self.last_zoom_time < 0.3:  # محدودیت 2 کلیک بر ثانیه
+        if current_time - self.last_zoom_time < 0.25:  # محدودیت 2 کلیک بر ثانیه
             self.delta_close_height = self.delta_close_height * 4
         self.last_zoom_time = current_time
 
@@ -2088,7 +2088,7 @@ class ProjectViewerApp(tk.Tk):
 
     def move_bottom_up(self):
         current_time = time.time()
-        if current_time - self.last_zoom_time < 0.3:  # محدودیت 2 کلیک بر ثانیه
+        if current_time - self.last_zoom_time < 0.25:  # محدودیت 2 کلیک بر ثانیه
             self.delta_close_height = self.delta_close_height * 4
         self.last_zoom_time = current_time
 
@@ -2099,7 +2099,7 @@ class ProjectViewerApp(tk.Tk):
 
     def move_bottom_down(self):
         current_time = time.time()
-        if current_time - self.last_zoom_time < 0.3:  # محدودیت 2 کلیک بر ثانیه
+        if current_time - self.last_zoom_time < 0.25:  # محدودیت 2 کلیک بر ثانیه
             self.delta_far_height = self.delta_far_height * 4
         self.last_zoom_time = current_time
 
@@ -2109,7 +2109,7 @@ class ProjectViewerApp(tk.Tk):
 
     def move_left_left(self):
         current_time = time.time()
-        if current_time - self.last_zoom_time < 0.3:  # محدودیت 2 کلیک بر ثانیه
+        if current_time - self.last_zoom_time < 0.25:  # محدودیت 2 کلیک بر ثانیه
             self.delta_far_width = self.delta_far_width * 4
         self.last_zoom_time = current_time
 
@@ -2119,7 +2119,7 @@ class ProjectViewerApp(tk.Tk):
 
     def move_left_right(self):
         current_time = time.time()
-        if current_time - self.last_zoom_time < 0.3:  # محدودیت 2 کلیک بر ثانیه
+        if current_time - self.last_zoom_time < 0.25:  # محدودیت 2 کلیک بر ثانیه
             self.delta_close_width = self.delta_close_width * 4
         self.last_zoom_time = current_time
 
@@ -2130,7 +2130,7 @@ class ProjectViewerApp(tk.Tk):
 
     def move_right_left(self):
         current_time = time.time()
-        if current_time - self.last_zoom_time < 0.3:  # محدودیت 2 کلیک بر ثانیه
+        if current_time - self.last_zoom_time < 0.25:  # محدودیت 2 کلیک بر ثانیه
             self.delta_close_width = self.delta_close_width * 4
         self.last_zoom_time = current_time
 
@@ -2141,7 +2141,7 @@ class ProjectViewerApp(tk.Tk):
 
     def move_right_right(self):
         current_time = time.time()
-        if current_time - self.last_zoom_time < 0.3:  # محدودیت 2 کلیک بر ثانیه
+        if current_time - self.last_zoom_time < 0.25:  # محدودیت 2 کلیک بر ثانیه
             self.delta_far_width = self.delta_far_width * 4
         self.last_zoom_time = current_time
 
@@ -3128,3 +3128,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
