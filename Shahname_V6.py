@@ -1,5 +1,5 @@
-
 # -*- coding: utf-8 -*-
+
 import os
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, simpledialog
@@ -7,7 +7,8 @@ from PIL import Image, ImageTk
 import shutil
 from ultralytics import YOLO
 import numpy as np
-import random
+import time
+
 
 class ProjectViewerApp(tk.Tk):
     def __init__(self):
@@ -39,6 +40,7 @@ class ProjectViewerApp(tk.Tk):
         self.zoom_factor = 1 # Zoom factor
         self.crop_cords = [0, 0 , 1, 1] #Crop coordinations used for zoom
         self.label_to_number = {}
+        self.last_zoom_time = 0
 
         self.project_data = {
             "name": "",               # Project name (str)
@@ -501,7 +503,7 @@ class ProjectViewerApp(tk.Tk):
             
             messagebox.showinfo(
                 "عملیات کامل شد",
-                f"عملیات ایجاد پروژه جددید با موفقیت انجام شد.\nتعداد فایل‌های منتقل شده به فولدر تصاویر پروژه : {len(image_files)}")
+                f"عملیات ایجاد پروژه جدید با موفقیت انجام شد.\nتعداد فایل‌های منتقل شده به فولدر تصاویر پروژه : {len(image_files)}")
         except Exception as e:
             messagebox.showerror("Error", f"Could not initialize a new project properly:\n{e}")
 
@@ -972,7 +974,7 @@ class ProjectViewerApp(tk.Tk):
         main_frame.pack(fill=tk.BOTH, expand=True)
 
         # Left frame: contains buttons (top) and canvas (bottom)
-        self.left_frame = ttk.Frame(main_frame, width=700, height=500, style='Side.TFrame')
+        self.left_frame = ttk.Frame(main_frame, width=750, height=500, style='Side.TFrame')
         self.left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=False)
         self.left_frame.pack_propagate(False)
 
@@ -999,17 +1001,17 @@ class ProjectViewerApp(tk.Tk):
         left_button.pack(side=tk.LEFT, padx=1)
         right_button = ttk.Button(btn_frame, text="→", command=self.move_right, width=3)
         right_button.pack(side=tk.LEFT, padx=1)
-        delete_image = ttk.Button(btn_frame, text="delete image", command=self.delet_image_from_project)
+        delete_image = ttk.Button(btn_frame, text="delete image", command=self.delet_image_from_project, width=12)
         delete_image.pack(side=tk.RIGHT, padx=2)
-        delete_image = ttk.Button(btn_frame, text="Apply AI", command=self.Apply_deep_learning_model)
+        delete_image = ttk.Button(btn_frame, text="Apply AI", command=self.Apply_deep_learning_model, width=8)
         delete_image.pack(side=tk.RIGHT, padx=2)
-        Backup = ttk.Button(btn_frame, text="Backup", command=self.Auto_save_project)
+        Backup = ttk.Button(btn_frame, text="Backup", command=self.Auto_save_project, width=8)
         Backup.pack(side=tk.RIGHT, padx=2)
-        save = ttk.Button(btn_frame, text="Save As", command=self.save_project)
+        save = ttk.Button(btn_frame, text="Save As", command=self.save_project, width=8)
         save.pack(side=tk.RIGHT, padx=2)
 
         # Canvas for image & rectangles - below buttons
-        self.canvas = tk.Canvas(self.left_frame, bg='white', width=650, height=550)
+        self.canvas = tk.Canvas(self.left_frame, bg='white', width=700, height=550)
         self.canvas.pack( padx=5, pady=5)
 
         # Bind canvas resize to redraw image and rectangles appropriately
@@ -1296,6 +1298,7 @@ class ProjectViewerApp(tk.Tk):
                 
                 # به روزرسانی لیست
                 self.populate_rectangle_list()
+                self.update_edit_panel_and_image_crop()
               
         except Exception as e:
             messagebox.showerror("Error", f"Error in update_label_text: {str(e)}")
@@ -1331,7 +1334,7 @@ class ProjectViewerApp(tk.Tk):
         """Draw rectangle while dragging the mouse."""
         if self.rect:
             self.canvas.delete(self.rect)  # Remove the previous rectangle
-        self.rect = self.canvas.create_rectangle(self.start_x, self.start_y, event.x, event.y, outline="green", width=2)
+        self.rect = self.canvas.create_rectangle(self.start_x, self.start_y, event.x, event.y, outline="cyan", width=2)
 
     def on_button_release(self, event):
         #  redraw cross lines
@@ -1409,7 +1412,7 @@ class ProjectViewerApp(tk.Tk):
                 self.populate_rectangle_list()  # Populate the rectangle list
                 self.update_edit_panel_and_image_crop()
                 # Change the color of the selected rectangle to red
-                self.canvas.itemconfig(self.rec_IDs[self.rect_index], outline="red")
+                self.canvas.itemconfig(self.rec_IDs[self.rect_index], outline="red", width=2)
 
                 self.populate_rectangle_list()
                 self.label_entry.focus_set()                 # Set keyboard focus to the labeling box for better UX                
@@ -1529,7 +1532,7 @@ class ProjectViewerApp(tk.Tk):
                 Lockemoji = "     \t"
                 if self.IsLocks[idx-1]:
                     Lockemoji = "\U0001F512\t"
-                self.lb2.insert(tk.END, f"{Lockemoji} Rect {idx}: {self.Labels[idx-1]:<8s} ")
+                self.lb2.insert(tk.END, f"{Lockemoji} Rect {idx:02d}: {self.Labels[idx-1]:<8s} ")
 
             # activate last rectangle
             self.lb2.selection_clear(0, tk.END)    # Clear any previous selection
@@ -1636,18 +1639,14 @@ class ProjectViewerApp(tk.Tk):
 
                 # Create PhotoImage and display
                 self.image_tk = ImageTk.PhotoImage(img)
-                # self.canvas.delete("all")
-                # self.canvas.create_image(0, 0, anchor='nw', image=self.image_tk)
 
                 # Save image visible area for future reference [x1, y1, x2, y2]
                 self.canvas.create_image(scaled_width//2, scaled_height//2, anchor=tk.CENTER, image=self.image_tk)
 
             except Exception as e:
-                # self.canvas.delete("all")
                 self.image_tk = None
                 messagebox.showerror(title="Image Load Error", message=f"Failed to load image:\n{e}")
         else:
-            # self.canvas.delete("all")
             self.image_tk = None
 
     def refresh_image(self):
@@ -1655,15 +1654,6 @@ class ProjectViewerApp(tk.Tk):
         self.image_tk = None # reset and initialize
 
         if self.img_index != None:
-            # self.lb1.selection_clear(0, tk.END)    # Clear any previous selection
-            # self.lb1.selection_set(self.img_index)              # Select the first item (index 0)
-            # self.lb1.activate(self.img_index)                  # Set the active item to the first one
-            # self.lb1.see(self.img_index)                      # Scroll to make sure the first item is visible
-            # self.lb1.focus_set()                 # Set keyboard focus to the listbox for better UX                
-
-            # self.canvas.delete("all")
-            # fname = self.project_data["images"][self.img_index]
-            # self.image_full_path = os.path.join(self.project_data["image_folder"], fname)
             try:
                 # img = Image.open(self.image_full_path)
                 img = self.original_image # Store the original image for resizing later
@@ -1691,18 +1681,12 @@ class ProjectViewerApp(tk.Tk):
 
                 # Create PhotoImage and display
                 self.image_tk = ImageTk.PhotoImage(img)
-                # self.canvas.delete("all")
-                # self.canvas.create_image(0, 0, anchor='nw', image=self.image_tk)
 
                 # Save image visible area for future reference [x1, y1, x2, y2]
                 self.canvas.create_image(scaled_width//2, scaled_height//2, anchor=tk.CENTER, image=self.image_tk)
 
             except Exception as e:
-                # self.canvas.delete("all")
-                # self.image_tk = None
                 messagebox.showerror(title="Image Load Error", message=f"Failed to load image:\n{e}")
-        # else:
-        #     self.image_tk = None
 
     def on_canvas_resize(self, event):
         self.canvas.delete("all")
@@ -1764,9 +1748,6 @@ class ProjectViewerApp(tk.Tk):
     def on_frame_resize(self):
         """انجام واقعی تغییر اندازه پس از تثبیت پنجره"""
         self._resize_timer = None
-
-        # canvas_width = event.width - 2
-        # canvas_height = event.height - 2
         # self.crop_canvas.config(scrollregion=(0, 0, canvas_width, canvas_height))
         self.update_edit_panel_and_image_crop()
 
@@ -2053,7 +2034,7 @@ class ProjectViewerApp(tk.Tk):
 
     def move_up(self):
         if self.image_tk != None:
-            Movement = min((self.crop_cords[3]-self.crop_cords[1])/10 , (self.crop_cords[1]) )
+            Movement = min((self.crop_cords[3]-self.crop_cords[1])/2 , (self.crop_cords[1]) )
             self.crop_cords[1] -= Movement 
             self.crop_cords[3] -= Movement 
             self.refresh_image()  # Your method to display the image
@@ -2061,7 +2042,7 @@ class ProjectViewerApp(tk.Tk):
 
     def move_down(self):
         if self.image_tk != None:
-            Movement = min((self.crop_cords[3]-self.crop_cords[1])/10 , (1-self.crop_cords[3]) )
+            Movement = min((self.crop_cords[3]-self.crop_cords[1])/2 , (1-self.crop_cords[3]) )
             self.crop_cords[1] += Movement 
             self.crop_cords[3] += Movement 
             self.refresh_image()  # Your method to display the image
@@ -2069,7 +2050,7 @@ class ProjectViewerApp(tk.Tk):
 
     def move_left(self):
         if self.image_tk != None:
-            Movement = min((self.crop_cords[2]-self.crop_cords[0])/10 , (self.crop_cords[0]) )
+            Movement = min((self.crop_cords[2]-self.crop_cords[0])/2 , (self.crop_cords[0]) )
             self.crop_cords[0] -= Movement 
             self.crop_cords[2] -= Movement 
             self.refresh_image()  # Your method to display the image
@@ -2077,7 +2058,7 @@ class ProjectViewerApp(tk.Tk):
 
     def move_right(self):
         if self.image_tk != None:
-            Movement = min((self.crop_cords[2]-self.crop_cords[0])/10 , (1-self.crop_cords[2]) )
+            Movement = min((self.crop_cords[2]-self.crop_cords[0])/2 , (1-self.crop_cords[2]) )
             self.crop_cords[0] += Movement 
             self.crop_cords[2] += Movement 
             self.refresh_image()  # Your method to display the image
@@ -2085,45 +2066,85 @@ class ProjectViewerApp(tk.Tk):
 
     # Command functions for arrow buttons
     def move_top_up(self):
+        current_time = time.time()
+        if current_time - self.last_zoom_time < 0.3:  # محدودیت 2 کلیک بر ثانیه
+            self.delta_far_height = self.delta_far_height * 4
+        self.last_zoom_time = current_time
+
         if self.rect_index  != None:
             self.coords[1] = max(0.0, self.coords[1] - self.delta_far_height)  # y1 -
             self.update_croped_image()
 
     def move_top_down(self):
+        current_time = time.time()
+        if current_time - self.last_zoom_time < 0.3:  # محدودیت 2 کلیک بر ثانیه
+            self.delta_close_height = self.delta_close_height * 4
+        self.last_zoom_time = current_time
+
         if self.rect_index  != None:
             if (self.coords[3] - self.coords[1]) > 3 * self.delta_close_height:
                 self.coords[1] = min(1.0, self.coords[1] + self.delta_close_height)  # y1 +
             self.update_croped_image()
 
     def move_bottom_up(self):
+        current_time = time.time()
+        if current_time - self.last_zoom_time < 0.3:  # محدودیت 2 کلیک بر ثانیه
+            self.delta_close_height = self.delta_close_height * 4
+        self.last_zoom_time = current_time
+
         if self.rect_index  != None:
             if (self.coords[3] - self.coords[1]) > 3 * self.delta_close_height:
                 self.coords[3] = max(0.0, self.coords[3] - self.delta_close_height)  # y2 -
             self.update_croped_image()
 
     def move_bottom_down(self):
+        current_time = time.time()
+        if current_time - self.last_zoom_time < 0.3:  # محدودیت 2 کلیک بر ثانیه
+            self.delta_far_height = self.delta_far_height * 4
+        self.last_zoom_time = current_time
+
         if self.rect_index  != None:
             self.coords[3] = min(1.0, self.coords[3] + self.delta_far_height)  # y2 +
             self.update_croped_image()
 
     def move_left_left(self):
+        current_time = time.time()
+        if current_time - self.last_zoom_time < 0.3:  # محدودیت 2 کلیک بر ثانیه
+            self.delta_far_width = self.delta_far_width * 4
+        self.last_zoom_time = current_time
+
         if self.rect_index  != None:
             self.coords[0] = max(0.0, self.coords[0] - self.delta_far_width)  # x1 -
             self.update_croped_image()
 
     def move_left_right(self):
+        current_time = time.time()
+        if current_time - self.last_zoom_time < 0.3:  # محدودیت 2 کلیک بر ثانیه
+            self.delta_close_width = self.delta_close_width * 4
+        self.last_zoom_time = current_time
+
         if self.rect_index  != None:
             if (self.coords[2] - self.coords[0]) > 3 * self.delta_close_width:
                 self.coords[0] = min(1.0, self.coords[0] + self.delta_close_width)  # x1 +
             self.update_croped_image()
 
     def move_right_left(self):
+        current_time = time.time()
+        if current_time - self.last_zoom_time < 0.3:  # محدودیت 2 کلیک بر ثانیه
+            self.delta_close_width = self.delta_close_width * 4
+        self.last_zoom_time = current_time
+
         if self.rect_index  != None:
             if (self.coords[2] - self.coords[0]) > 3 * self.delta_close_width:
                 self.coords[2] = max(0.0, self.coords[2] - self.delta_close_width)  # x2 -
             self.update_croped_image()
 
     def move_right_right(self):
+        current_time = time.time()
+        if current_time - self.last_zoom_time < 0.3:  # محدودیت 2 کلیک بر ثانیه
+            self.delta_far_width = self.delta_far_width * 4
+        self.last_zoom_time = current_time
+
         if self.rect_index  != None:
             self.coords[2] = min(1.0, self.coords[2] + self.delta_far_width)  # x2 +
             self.update_croped_image()
@@ -2180,7 +2201,7 @@ class ProjectViewerApp(tk.Tk):
                     if current_point[1] != start_point[1]:
                         self.display_image() # Your method to display the image number self.img_index
                     self.draw_rectamgles()
-                    self.update_edit_panel_and_image_crop()
+                    # self.update_edit_panel_and_image_crop()
                     self.update_rectangle_preview()
                     self.label_entry.focus_set()                 # Set keyboard focus to the labeling box for better UX                
                     self.label_entry.icursor(tk.END)  # Move cursor to end of text
@@ -2217,7 +2238,7 @@ class ProjectViewerApp(tk.Tk):
                     if current_point[1] != start_point[1]:
                         self.display_image() # Your method to display the image number self.img_index
                     self.draw_rectamgles()
-                    self.update_edit_panel_and_image_crop()
+                    # self.update_edit_panel_and_image_crop()
                     self.update_rectangle_preview()
                     self.label_entry.focus_set()                 # Set keyboard focus to the labeling box for better UX                
                     self.label_entry.icursor(tk.END)  # Move cursor to end of text
@@ -2261,8 +2282,9 @@ class ProjectViewerApp(tk.Tk):
                     self.populate_rectangle_list()
                     if current_point[1] != start_point[1]:
                         self.display_image() # Your method to display the image number self.img_index
+                        self.Auto_save_project()
                     self.draw_rectamgles()
-                    self.update_edit_panel_and_image_crop()
+                    # self.update_edit_panel_and_image_crop()
                     self.update_rectangle_preview()
                     self.label_entry.focus_set()                 # Set keyboard focus to the labeling box for better UX                
                     self.label_entry.icursor(tk.END)  # Move cursor to end of text
@@ -2336,8 +2358,7 @@ class ProjectViewerApp(tk.Tk):
             self.rect_index = None
             self.populate_rectangle_list()
             self.update_edit_panel_and_image_crop()
-
-            self.disable_frame()
+            # self.disable_frame()
 
     def disable_frame(self):
         self.left_top_button.config(state='disabled')
@@ -2427,14 +2448,6 @@ class ProjectViewerApp(tk.Tk):
 
     def update_edit_panel_and_image_crop(self):
         if self.rect_index != None:
-            # fname = self.project_data["images"][self.img_index]
-            # self.image_full_path = os.path.join(self.project_data["image_folder"], fname)
-            # try:
-            #     self.crop_img = Image.open(self.image_full_path)
-            # except Exception as e:
-            #     messagebox.showerror("Error", f"Could not load image:\n{e}")
-            #     return
-
             self.rectangles = self.project_data["rectangles"][self.project_data["images"][self.img_index]]
             self.IsLocks = self.project_data["IsLocks"][self.project_data["images"][self.img_index]]
             self.Labels = self.project_data["Labels"][self.project_data["images"][self.img_index]]
@@ -2483,6 +2496,8 @@ class ProjectViewerApp(tk.Tk):
             self.crop_canvas.delete("all")
             self.crop_canvas.create_image(canvas_width // 2, canvas_height // 2, anchor=tk.CENTER, image=cropped_img_tk)
             self.crop_canvas.image = cropped_img_tk  # Keep a reference to prevent garbage collection
+            self.crop_canvas.create_text(canvas_width // 2, canvas_height // 2, text=self.Rec_Label, 
+                                 fill="skyblue", font=("Times New Roman", 16, "bold"))
 
             if self.rec_islock:
                 self.disable_frame()
