@@ -101,11 +101,13 @@ class ProjectViewerApp(tk.Tk):
         Edit_menu.add_separator()  # اضافه کردن خط جداکننده
         Edit_menu.add_command(label="Clear Bounding box for the current image", command=self.Clear_BBox_list)
         Export_menu = tk.Menu(menu_bar, tearoff=0)
-        Export_menu.add_command(label="Split images", command=self.Split_images_by_BBoxes)
+        Export_menu.add_command(label="Split images by BBoxes", command=self.Split_images_by_BBoxes)
+        Export_menu.add_command(label="Split images by BBoxes and label", command=self.Split_images_by_Label)
         Export_menu.add_command(label="Export to YAML format", command=self.Export_to_YAML)
         Export_menu.add_separator()  # اضافه کردن خط جداکننده
-        Export_menu.add_command(label="Split Current Image", command=self.Split_Current_image_by_BBoxes)
+        Export_menu.add_command(label="Split Current Image by BBoxes", command=self.Split_Current_image_by_BBoxes)
         Export_menu.add_command(label="Export Current Image to YAML format", command=self.Export_Image_to_YAML)
+        Export_menu.add_command(label="Split Current Image by BBoxes and label", command=self.Split_Current_image_by_Label)
         Import_menu = tk.Menu(menu_bar, tearoff=0)
         Import_menu.add_command(label="Import YOLO Database", command=self.Import_YOLO_dataset)
         Labels_menu = tk.Menu(menu_bar, tearoff=0)
@@ -1003,8 +1005,8 @@ class ProjectViewerApp(tk.Tk):
         right_button.pack(side=tk.LEFT, padx=1)
         delete_image = ttk.Button(btn_frame, text="delete image", command=self.delet_image_from_project, width=12)
         delete_image.pack(side=tk.RIGHT, padx=2)
-        delete_image = ttk.Button(btn_frame, text="Apply AI", command=self.Apply_deep_learning_model, width=8)
-        delete_image.pack(side=tk.RIGHT, padx=2)
+        self.apply_ai = ttk.Button(btn_frame, text="Apply AI", command=self.Apply_deep_learning_model, width=8)
+        self.apply_ai.pack(side=tk.RIGHT, padx=2)
         Backup = ttk.Button(btn_frame, text="Backup", command=self.Auto_save_project, width=8)
         Backup.pack(side=tk.RIGHT, padx=2)
         save = ttk.Button(btn_frame, text="Save As", command=self.save_project, width=8)
@@ -1425,15 +1427,15 @@ class ProjectViewerApp(tk.Tk):
         if not destination:
             return  # User cancelled folder selection
 
-        for ids, image in enumerate(self.project_data["images"]):
-            image_full_path = os.path.join(self.project_data["image_folder"], image)
+        for fname in self.project_data["images"]:
+            image_full_path = os.path.join(self.project_data["image_folder"], fname)
             filename, extension = os.path.splitext(os.path.basename(image_full_path))
             try:
                 img = Image.open(image_full_path)
             except Exception as e:
-                messagebox.showerror(title="Image Load Error", message=f"Failed to load image:\n{e}")
-                return
-            rectangles = self.project_data["rectangles"][image]
+                messagebox.showerror(title="Image Load Error", message=f"Failed to load image:\n{e}\nIt is continued for other images.")
+                continue
+            rectangles = self.project_data["rectangles"][fname]
             for rec, coords in enumerate(rectangles):
                 x1, y1, x2, y2 = coords
                 img_width, img_height = img.size
@@ -1460,10 +1462,62 @@ class ProjectViewerApp(tk.Tk):
         messagebox.Message("عملیات با موفقیت انجام شد!")
         proceed = messagebox.askyesno(
             "Success",
-            f"Project Splited successfully.\nThe folder is:\n{destination}"        )
+            f"Project Splited successfully.\nThe folder is:\n{destination}\n\n Do you want to open the folder?")
         if proceed:
             os.startfile(destination)
 
+
+    def Split_images_by_Label(self):
+        # دریافت کلمه از کاربر
+        label = simpledialog.askstring("ورود لیبل", "لطفاً لیبل مورد نظر خود\nبرای تفکیک تصاویر را وارد کنید:\n\n")
+        if not label:
+            return # User cancelled folder selection
+
+        # دریافت مسیرها از کاربر
+        destination = filedialog.askdirectory(title="Select Base Folder for Moving the splited images to")
+        if not destination:
+            return  # User cancelled folder selection
+
+        for fname in self.project_data["images"]:
+            image_full_path = os.path.join(self.project_data["image_folder"], fname)
+            filename, extension = os.path.splitext(os.path.basename(image_full_path))
+            try:
+                img = Image.open(image_full_path)
+            except Exception as e:
+                messagebox.showerror(title="Image Load Error", message=f"Failed to load image:\n{e}\nIt is continued for other images.")
+                continue
+            rectangles = self.project_data["rectangles"][fname]
+            Lables = self.project_data["Labels"][fname]
+            for rec, coords in enumerate(rectangles):
+                if Lables[rec] == label:
+                    x1, y1, x2, y2 = coords
+                    img_width, img_height = img.size
+
+                    # Calculate pixel coordinates
+                    left = int(x1 * img_width)
+                    top = int(y1 * img_height)
+                    right = int(x2 * img_width)
+                    bottom = int(y2 * img_height)
+
+                    # Ensure coordinates are within bounds
+                    left = max(0, left)
+                    top = max(0, top)
+                    right = min(img_width, right)
+                    bottom = min(img_height, bottom)
+
+                    # Crop the image
+                    cropped_img = img.crop((left, top, right, bottom))
+                    new_filename = f"{filename}_{(rec+1):03d}{extension}"
+                    
+                    new_path = os.path.join(destination, new_filename)
+                    cropped_img.save(new_path, quality=95)  # تغییر این خط
+
+        messagebox.Message("عملیات با موفقیت انجام شد!")
+        proceed = messagebox.askyesno(
+            "Success",
+            f"Project Splited successfully.\nThe folder is:\n{destination}\n\n Do you want to open the folder?")
+        if proceed:
+            os.startfile(destination)
 
     def Split_Current_image_by_BBoxes(self):
         if self.img_index != None:
@@ -1471,15 +1525,15 @@ class ProjectViewerApp(tk.Tk):
             destination = filedialog.askdirectory(title="Select the Destination Folder to Split Current Image")
             if not destination:
                 return  # User cancelled folder selection
-            image = self.project_data["images"][self.img_index]
-            image_full_path = os.path.join(self.project_data["image_folder"], image)
+            fname = self.project_data["images"][self.img_index]
+            image_full_path = os.path.join(self.project_data["image_folder"], fname)
             filename, extension = os.path.splitext(os.path.basename(image_full_path))
             try:
                 img = Image.open(image_full_path)
             except Exception as e:
                 messagebox.showerror(title="Image Load Error", message=f"Failed to load image:\n{e}")
                 return
-            rectangles = self.project_data["rectangles"][image]
+            rectangles = self.project_data["rectangles"][fname]
             for rec, coords in enumerate(rectangles):
                 x1, y1, x2, y2 = coords
                 img_width, img_height = img.size
@@ -1502,6 +1556,58 @@ class ProjectViewerApp(tk.Tk):
                 
                 new_path = os.path.join(destination, new_filename)
                 cropped_img.save(new_path, quality=95)  # تغییر این خط
+
+        messagebox.Message("عملیات با موفقیت انجام شد!")
+        proceed = messagebox.askyesno(
+            "Success",
+            f"Project Splited successfully.\nThe folder is:\n{destination}\n\n Do you want to open the folder?")
+        if proceed:
+            os.startfile(destination)
+
+    def Split_Current_image_by_Label(self):
+        # دریافت کلمه از کاربر
+        label = simpledialog.askstring("ورود لیبل", "لطفاً لیبل مورد نظر خود\nبرای تفکیک تصاویر را وارد کنید:\n\n")
+        if not label:
+            return # User cancelled folder selection
+
+        if self.img_index != None:
+            # دریافت مسیرها از کاربر
+            destination = filedialog.askdirectory(title="Select the Destination Folder to Split Current Image by Label")
+            if not destination:
+                return  # User cancelled folder selection
+            fname = self.project_data["images"][self.img_index]
+            image_full_path = os.path.join(self.project_data["image_folder"], fname)
+            filename, extension = os.path.splitext(os.path.basename(image_full_path))
+            try:
+                img = Image.open(image_full_path)
+            except Exception as e:
+                messagebox.showerror(title="Image Load Error", message=f"Failed to load image:\n{e}")
+                return
+            rectangles = self.project_data["rectangles"][fname]
+            Lables = self.project_data["Labels"][fname]
+            for rec, coords in enumerate(rectangles):
+                if Lables[rec] == label:
+                    x1, y1, x2, y2 = coords
+                    img_width, img_height = img.size
+
+                    # Calculate pixel coordinates
+                    left = int(x1 * img_width)
+                    top = int(y1 * img_height)
+                    right = int(x2 * img_width)
+                    bottom = int(y2 * img_height)
+
+                    # Ensure coordinates are within bounds
+                    left = max(0, left)
+                    top = max(0, top)
+                    right = min(img_width, right)
+                    bottom = min(img_height, bottom)
+
+                    # Crop the image
+                    cropped_img = img.crop((left, top, right, bottom))
+                    new_filename = f"{filename}_{(rec+1):03d}{extension}"
+                    
+                    new_path = os.path.join(destination, new_filename)
+                    cropped_img.save(new_path, quality=95)  # تغییر این خط
 
         messagebox.Message("عملیات با موفقیت انجام شد!")
         proceed = messagebox.askyesno(
@@ -2067,7 +2173,7 @@ class ProjectViewerApp(tk.Tk):
     # Command functions for arrow buttons
     def move_top_up(self):
         current_time = time.time()
-        if current_time - self.last_zoom_time < 0.25:  # محدودیت 2 کلیک بر ثانیه
+        if current_time - self.last_zoom_time < 0.20:  # محدودیت 2 کلیک بر ثانیه
             self.delta_far_height = self.delta_far_height * 4
         self.last_zoom_time = current_time
 
@@ -2077,7 +2183,7 @@ class ProjectViewerApp(tk.Tk):
 
     def move_top_down(self):
         current_time = time.time()
-        if current_time - self.last_zoom_time < 0.25:  # محدودیت 2 کلیک بر ثانیه
+        if current_time - self.last_zoom_time < 0.20:  # محدودیت 2 کلیک بر ثانیه
             self.delta_close_height = self.delta_close_height * 4
         self.last_zoom_time = current_time
 
@@ -2088,7 +2194,7 @@ class ProjectViewerApp(tk.Tk):
 
     def move_bottom_up(self):
         current_time = time.time()
-        if current_time - self.last_zoom_time < 0.25:  # محدودیت 2 کلیک بر ثانیه
+        if current_time - self.last_zoom_time < 0.20:  # محدودیت 2 کلیک بر ثانیه
             self.delta_close_height = self.delta_close_height * 4
         self.last_zoom_time = current_time
 
@@ -2099,7 +2205,7 @@ class ProjectViewerApp(tk.Tk):
 
     def move_bottom_down(self):
         current_time = time.time()
-        if current_time - self.last_zoom_time < 0.25:  # محدودیت 2 کلیک بر ثانیه
+        if current_time - self.last_zoom_time < 0.20:  # محدودیت 2 کلیک بر ثانیه
             self.delta_far_height = self.delta_far_height * 4
         self.last_zoom_time = current_time
 
@@ -2109,7 +2215,7 @@ class ProjectViewerApp(tk.Tk):
 
     def move_left_left(self):
         current_time = time.time()
-        if current_time - self.last_zoom_time < 0.25:  # محدودیت 2 کلیک بر ثانیه
+        if current_time - self.last_zoom_time < 0.20:  # محدودیت 2 کلیک بر ثانیه
             self.delta_far_width = self.delta_far_width * 4
         self.last_zoom_time = current_time
 
@@ -2119,7 +2225,7 @@ class ProjectViewerApp(tk.Tk):
 
     def move_left_right(self):
         current_time = time.time()
-        if current_time - self.last_zoom_time < 0.25:  # محدودیت 2 کلیک بر ثانیه
+        if current_time - self.last_zoom_time < 0.20:  # محدودیت 2 کلیک بر ثانیه
             self.delta_close_width = self.delta_close_width * 4
         self.last_zoom_time = current_time
 
@@ -2130,7 +2236,7 @@ class ProjectViewerApp(tk.Tk):
 
     def move_right_left(self):
         current_time = time.time()
-        if current_time - self.last_zoom_time < 0.25:  # محدودیت 2 کلیک بر ثانیه
+        if current_time - self.last_zoom_time < 0.20:  # محدودیت 2 کلیک بر ثانیه
             self.delta_close_width = self.delta_close_width * 4
         self.last_zoom_time = current_time
 
@@ -2141,7 +2247,7 @@ class ProjectViewerApp(tk.Tk):
 
     def move_right_right(self):
         current_time = time.time()
-        if current_time - self.last_zoom_time < 0.25:  # محدودیت 2 کلیک بر ثانیه
+        if current_time - self.last_zoom_time < 0.20:  # محدودیت 2 کلیک بر ثانیه
             self.delta_far_width = self.delta_far_width * 4
         self.last_zoom_time = current_time
 
@@ -2496,8 +2602,12 @@ class ProjectViewerApp(tk.Tk):
             self.crop_canvas.delete("all")
             self.crop_canvas.create_image(canvas_width // 2, canvas_height // 2, anchor=tk.CENTER, image=cropped_img_tk)
             self.crop_canvas.image = cropped_img_tk  # Keep a reference to prevent garbage collection
+            self.crop_canvas.create_text(canvas_width // 2 - 1, canvas_height // 2, text=self.Rec_Label, 
+                                 fill="white", font=("Times New Roman", 16, "bold"))
+            self.crop_canvas.create_text(canvas_width // 2 + 1, canvas_height // 2, text=self.Rec_Label, 
+                                 fill="black", font=("Times New Roman", 16, "bold"))
             self.crop_canvas.create_text(canvas_width // 2, canvas_height // 2, text=self.Rec_Label, 
-                                 fill="skyblue", font=("Times New Roman", 16, "bold"))
+                                 fill="blue", font=("Times New Roman", 16, "bold"))
 
             if self.rec_islock:
                 self.disable_frame()
@@ -3079,7 +3189,7 @@ class ProjectViewerApp(tk.Tk):
 
     def Apply_deep_learning_model_to_All(self):
         if self.model:
-            for fname in self.project_data["images"]:
+            for idx, fname in enumerate(self.project_data["images"]):
                 if self.project_data["rectangles"][fname] == []:
                     try:
                         image_path = os.path.join(self.project_data["image_folder"], fname)
@@ -3106,9 +3216,16 @@ class ProjectViewerApp(tk.Tk):
                                 self.project_data["rectangles"][fname].append((x1,y1,x2,y2))
                                 self.project_data["IsLocks"][fname].append(False)
                                 self.project_data["Labels"][fname].append(names[classs[i]])
+
                     except:
                         continue
-            
+                self.apply_ai.config(text=f"{idx}")  
+                self.apply_ai.update()  # به روز رسانی فوری رابط کاربری
+ 
+
+            self.apply_ai.config(text="Apply AI")                    
+            self.apply_ai.update()  # به روز رسانی فوری رابط کاربری
+
             self.rect_index = 0
             self.crop_cords = list((0, 0, 1, 1))
             self.zoom_factor = 1
@@ -3128,4 +3245,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
