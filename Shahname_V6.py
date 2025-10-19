@@ -985,6 +985,7 @@ class ProjectViewerApp(tk.Tk):
         self.char_sequense = ""
 
 
+
     def _setup_widgets(self):
         main_frame = ttk.Frame(self, padding=10, style='TFrame', width=1000, height=800)
         main_frame.pack(fill=tk.BOTH, expand=True)
@@ -1002,20 +1003,20 @@ class ProjectViewerApp(tk.Tk):
         # self.split_button.pack(side=tk.LEFT, padx=5)
 
 
-        button3 = ttk.Button(btn_frame, text="Zoom in", command=self.Zoom_in)
+        button3 = ttk.Button(btn_frame, text="←↕→", command=self.Zoom_in, width=4)
         button3.pack(side=tk.LEFT, padx=2)
 
-        button4 = ttk.Button(btn_frame, text="Zoom out", command=self.Zoom_out)
+        button4 = ttk.Button(btn_frame, text="→←", command=self.Zoom_out, width=4)
         button4.pack(side=tk.LEFT, padx=2)
 
         # Arrow Buttons
-        up_button = ttk.Button(btn_frame, text="↑", command=self.move_up, width=3)
+        up_button = ttk.Button(btn_frame, text="↑", command=self.move_up, width=2)
         up_button.pack(side=tk.LEFT, padx=1)
-        down_button = ttk.Button(btn_frame, text="↓", command=self.move_down, width=3)
+        down_button = ttk.Button(btn_frame, text="↓", command=self.move_down, width=2)
         down_button.pack(side=tk.LEFT, padx=1)
-        left_button = ttk.Button(btn_frame, text="←", command=self.move_left, width=3)
+        left_button = ttk.Button(btn_frame, text="←", command=self.move_left, width=2)
         left_button.pack(side=tk.LEFT, padx=1)
-        right_button = ttk.Button(btn_frame, text="→", command=self.move_right, width=3)
+        right_button = ttk.Button(btn_frame, text="→", command=self.move_right, width=2)
         right_button.pack(side=tk.LEFT, padx=1)
         delete_image = ttk.Button(btn_frame, text="delete image", command=self.delet_image_from_project, width=12)
         delete_image.pack(side=tk.RIGHT, padx=2)
@@ -1025,6 +1026,30 @@ class ProjectViewerApp(tk.Tk):
         Backup.pack(side=tk.RIGHT, padx=2)
         save = ttk.Button(btn_frame, text="Save As", command=self.save_project, width=8)
         save.pack(side=tk.RIGHT, padx=2)
+
+
+
+        # Entry for Search text (اضافه شده)
+        self.char_sequense2 = tk.StringVar()
+        self.char_sequense2.set("")  # مقدار اولیه خالی
+        self.Search_entry = ttk.Entry(
+            btn_frame,
+            textvariable=self.char_sequense2,
+            width=15,
+            validate="key",
+            validatecommand=(self.register(self.validate_label_entry2), '%P'), 
+            font=('Tahoma', 10)
+        )
+        self.Search_entry.pack(side=tk.RIGHT, padx=2)
+
+        Search = ttk.Button(btn_frame, text="🔎", command=self.Find_Persian_character_sequense2, width=3)
+        Search.pack(side=tk.RIGHT, padx=2)
+
+
+
+
+
+
 
         # Canvas for image & rectangles - below buttons
         self.canvas = tk.Canvas(self.left_frame, bg='white', width=700, height=550)
@@ -1273,6 +1298,24 @@ class ProjectViewerApp(tk.Tk):
         # این تابع زمانی فراخوانی می‌شود که دکمه موس روی لیست باکس رها شود
         self.after(10, lambda: self.label_entry.focus_set())  # از after برای اطمینان از اجرای صحیح استفاده می‌کنیم
 
+    def validate_label_entry2(self, new_text):
+        last_char = new_text[-1] if new_text else None
+        if last_char != None:
+            if ord(last_char) == 63:
+                messagebox.showinfo("Type failed", "برای نوشتن اعداد از کیبورد انگلیسی استفاده کنید\n\nبرای نوشتن ممیز فارسی به انگلیسی کلمه زیر را تایپ کنید\nMMYZ")
+                return False
+        # مجموعه کاراکترهای مجاز (برای سرعت بیشتر)
+        allowed_chars = {
+            'آ', 'ا', 'ب', 'پ', 'ت', 'ث', 'ج', 'چ', 'ح', 'خ', 'د', 'ذ', 'ر', 'ز', 'ژ', 'س', 'ش', 'ص',
+            'ض', 'ط', 'ظ', 'ع', 'غ', 'ف', 'ق', 'ک', 'گ', 'ل', 'م', 'ن', 'و', 'ه', 'ي', 'ی',
+            'ؤ', 'ئ', 'أ', 'ء'
+            '۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹',
+            ')', '(', ']', '[', '؟', '!', '.', '،', ':', '؛', '»', '«',
+            '+', '-', '/', '×', '÷', '>', '=', '<', '٫', '‌', ' ',
+            '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'
+        }
+        return all(char in allowed_chars for char in new_text)
+
     def validate_label_entry(self, new_text):
         """اعتبارسنجی با مجموعه کاراکترهای مجاز"""
         if len(new_text) > 10:
@@ -1354,14 +1397,8 @@ class ProjectViewerApp(tk.Tk):
 
     def on_button_release(self, event):
         #  redraw cross lines
-        canvas_width = self.canvas.winfo_width()
-        canvas_height = self.canvas.winfo_height()
-        x = event.x
-        y = event.y
-        self.canvas.delete('lines')  # delete previous lines
-        self.canvas.create_line(x - 1, 0, x - 1, canvas_height, tags='lines')  # vertical line
-        self.canvas.create_line(0, y - 1, canvas_width, y - 1, tags='lines')  # horizontal line
-        
+        self.draw_cross_lines(event)
+       
         if self.image_tk == None:
             return  # Do nothing if no image is loaded
         if not self.rect:
@@ -1540,6 +1577,35 @@ class ProjectViewerApp(tk.Tk):
             destination = filedialog.askdirectory(title="Select the Destination Folder to Split Current Image")
             if not destination:
                 return  # User cancelled folder selection
+            
+            project_name = simpledialog.askstring("Project Name", "Enter new project name\nThis names will be used to create a folder for Project files too.")
+            if not project_name:
+                return  # User cancelled project name input
+            full_project_path = os.path.join(destination, project_name).replace("\\",  "/")
+            try:
+                os.makedirs(full_project_path, exist_ok=False)
+                project_folder = full_project_path
+            except FileExistsError:
+                response = messagebox.askyesno(
+                    "Folder Exists",
+                    f"The folder '{full_project_path}' already exists.\n\n\nDo you want to continue and use this folder?"
+                )
+                if response:
+                    project_folder = full_project_path
+                else:
+                    return
+            except Exception as e:
+                messagebox.showerror("Error", f"Could not create project folder:\n\n{e}")
+                return
+
+            try:
+                os.makedirs(os.path.join(project_folder, 'images').replace("\\",  "/"), exist_ok=True)
+                project_image_folder = os.path.join(project_folder, 'images').replace("\\",  "/")
+            except Exception as e:
+                messagebox.showerror("Error", f"Could not create images folder:\n\n{e}")
+                return
+
+
             fname = self.project_data["images"][self.img_index]
             image_full_path = os.path.join(self.project_data["image_folder"], fname).replace("\\",  "/")
             filename, extension = os.path.splitext(os.path.basename(image_full_path))
@@ -1548,36 +1614,52 @@ class ProjectViewerApp(tk.Tk):
             except Exception as e:
                 messagebox.showerror(title="Image Load Error", message=f"Failed to load image:\n{e}")
                 return
-            rectangles = self.project_data["rectangles"][fname]
-            for rec, coords in enumerate(rectangles):
-                x1, y1, x2, y2 = coords
-                img_width, img_height = img.size
+            
+            project_txt_path = os.path.join(project_folder, project_name + '_project.txt').replace("\\",  "/")
+            try:
+                with open(project_txt_path, "w", encoding="utf-8") as f:
+                    f.write(f"Project: {project_name}\n\n")
+                    f.write(f"Project Folder: {project_folder}\n\n")
+                    f.write(f"Image Folder: {project_image_folder}\n\n")
+                    f.write(f"Path to AI: \n\n")
+                    rectangles = self.project_data["rectangles"][fname]
+                    for rec, coords in enumerate(rectangles):
+                        x1, y1, x2, y2 = coords
+                        img_width, img_height = img.size
 
-                # Calculate pixel coordinates
-                left = int(x1 * img_width)
-                top = int(y1 * img_height)
-                right = int(x2 * img_width)
-                bottom = int(y2 * img_height)
+                        # Calculate pixel coordinates
+                        left = int(x1 * img_width)
+                        top = int(y1 * img_height)
+                        right = int(x2 * img_width)
+                        bottom = int(y2 * img_height)
 
-                # Ensure coordinates are within bounds
-                left = max(0, left)
-                top = max(0, top)
-                right = min(img_width, right)
-                bottom = min(img_height, bottom)
+                        # Ensure coordinates are within bounds
+                        left = max(0, left)
+                        top = max(0, top)
+                        right = min(img_width, right)
+                        bottom = min(img_height, bottom)
 
-                # Crop the image
-                cropped_img = img.crop((left, top, right, bottom))
-                new_filename = f"{filename}_{(rec+1):03d}{extension}"
-                
-                new_path = os.path.join(destination, new_filename).replace("\\",  "/")
-                cropped_img.save(new_path, quality=95)  # تغییر این خط
+                        # Crop the image
+                        cropped_img = img.crop((left, top, right, bottom))
+                        new_filename = f"{filename}_{(rec+1):03d}{extension}"
+                        
+                        new_path = os.path.join(project_image_folder, new_filename).replace("\\",  "/")
+                        cropped_img.save(new_path, quality=95)  # تغییر این خط
+
+                        f.write(f"[{rec+1}] {new_filename}\n")
+
+                    f.write("\nRectangles per image:\n\n")
+                    f.write("\nnames:\n")
+
+            except Exception as e:
+                messagebox.showerror("Error", f"Could not split current image by BBoxes properly:\n{e}")
 
         messagebox.Message("عملیات با موفقیت انجام شد!")
         proceed = messagebox.askyesno(
             "Success",
             f"Project Splited successfully.\nThe folder is:\n{destination}\n\n Do you want to open the folder?")
         if proceed:
-            os.startfile(destination)
+            os.startfile(project_folder)
 
     def Split_Current_image_by_Label(self):
         # دریافت کلمه از کاربر
@@ -2546,6 +2628,62 @@ class ProjectViewerApp(tk.Tk):
             # Refresh rectangle list and redraw canvas rectangles
             self.populate_rectangle_list()
             self.enable_frame()
+
+    def Find_Persian_character_sequense2(self):
+        search_text = self.char_sequense2.get()
+        if search_text != "":
+            Label_sequense = []
+            for chr in search_text:
+                if chr == 'ي':
+                    chr = 'ی'
+                if chr in self.Str_to_name:
+                    Label_sequense.append(self.Str_to_name[chr])
+                else:
+                    messagebox.showerror('Error', f"This character is not in our Persian character list:\n\"{chr}\"")
+                    continue
+
+            if self.rect_index != None:
+                start_point = list((self.rect_index, self.img_index))
+                current_point = list((self.rect_index + 1, self.img_index))
+                self.Labels = self.project_data["Labels"][self.project_data["images"][current_point[1]]]
+                check = True
+                while check:
+                    if current_point[0] >= len(self.Labels) - len(Label_sequense) + 1:
+                        current_point[0] = 0
+                        current_point[1] += 1
+                    if current_point[1] >= len(self.project_data["images"]):
+                        current_point[1] = 0
+                    self.rectangles = self.project_data["rectangles"][self.project_data["images"][current_point[1]]]
+                    self.IsLocks = self.project_data["IsLocks"][self.project_data["images"][current_point[1]]]
+                    self.Labels = self.project_data["Labels"][self.project_data["images"][current_point[1]]]
+                    if self.Labels == []:
+                        current_point[0] = 0
+                        current_point[1] += 1
+                        continue
+                    if  self.Labels[current_point[0]] == Label_sequense[0]:
+                        found_sequense = []
+                        for idx in range(len(Label_sequense)):
+                            found_sequense.append(self.project_data["Labels"][self.project_data["images"][current_point[1]]][current_point[0] + idx])
+                        if Label_sequense == found_sequense:
+                            self.img_index = current_point[1]
+                            self.rect_index = current_point[0]
+                            self.rec_islock = self.IsLocks[current_point[0]]
+                            self.coords = self.rectangles[current_point[0]]
+                            self.Rec_Label = self.Labels[current_point[0]]  # Copy for editing
+                            self.populate_rectangle_list()
+                            if current_point[1] != start_point[1]:
+                                self.crop_cords = list((0, 0, 1, 1))
+                                self.zoom_factor = 1
+                                self.display_image() # Your method to display the image number self.img_index
+                            self.draw_rectamgles()
+                            # self.update_edit_panel_and_image_crop()
+                            self.update_rectangle_preview()
+                            self.label_entry.focus_set()                 # Set keyboard focus to the labeling box for better UX                
+                            self.label_entry.icursor(tk.END)  # Move cursor to end of text
+                            check = False
+                    if current_point == start_point:
+                        check = False                
+                    current_point[0] += 1
 
     def Find_Persian_character_sequense(self):
         while True:
