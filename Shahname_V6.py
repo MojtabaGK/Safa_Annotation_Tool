@@ -129,6 +129,9 @@ class ProjectViewerApp(tk.Tk):
         AI_menu.add_command(label="Apply deep learning model to the current image", command=self.Apply_deep_learning_model)
         AI_menu.add_separator()  # اضافه کردن خط جداکننده
         AI_menu.add_command(label="Apply deep learning model to All images with no BBox", command=self.Apply_deep_learning_model_to_All)
+        AI_menu.add_separator()  # اضافه کردن خط جداکننده
+        AI_menu.add_command(label="Check label conflict with the current image", command=self.Check_Label_Conflict)
+        AI_menu.add_command(label="Check label conflict with All images", command=self.Check_All_Label_Conflict)
         menu_bar.add_cascade(label="File", menu=file_menu)
         menu_bar.add_cascade(label="Edit", menu=Edit_menu)
         menu_bar.add_cascade(label="Export", menu=Export_menu)
@@ -327,8 +330,8 @@ class ProjectViewerApp(tk.Tk):
 
         # Retrieve the list of rectangles for the first image
         image_files = self.project_data["images"]
+        self.populate_image_list(image_files)
         if image_files:
-            self.populate_image_list(image_files)
             self.img_index = 0
             self.rectangles = self.project_data["rectangles"][self.project_data["images"][self.img_index]]
             self.IsLocks = self.project_data["IsLocks"][self.project_data["images"][self.img_index]]
@@ -362,8 +365,7 @@ class ProjectViewerApp(tk.Tk):
             self.label_entry.icursor(tk.END)  # Move cursor to end of text
 
         else:
-            messagebox.showerror("Error", "No image is available in the project you selected.")
-            return
+            messagebox.showerror("Warning", "No image is available in the project you selected.\nAdd images if you want.", icon='warning')
         
         messagebox.showinfo("Success", "Project opened successfully")
 
@@ -374,29 +376,23 @@ class ProjectViewerApp(tk.Tk):
             project_folder = filedialog.askdirectory(title="Select Base Folder for New Project")
             if not project_folder:
                 return  # User cancelled folder selection
+            project_folder = project_folder.replace("\\",  "/")
             project_name = simpledialog.askstring("Project Name", "Enter new project name:")
             if not project_name:
                 return  # User cancelled project name input
-            full_project_path = os.path.join(project_folder, project_name).replace("\\",  "/")
             try:
-                os.makedirs(full_project_path, exist_ok=False)
-                project_folder = full_project_path
+                os.makedirs(project_folder, exist_ok=True)
                 break  # Folder created successfully, exit loop
-            except FileExistsError:
-                response = messagebox.askyesno(
-                    "Folder Exists",
-                    f"The folder '{full_project_path}' already exists.\n\n\nDo you want to continue and use this folder?"
-                )
-                if response:
-                    project_folder = full_project_path
-                    break  # User agrees to use existing folder
             except Exception as e:
                 messagebox.showerror("Error", f"Could not create project folder:\n\n{e}")
                 return
 
+
         jpg_folder = filedialog.askdirectory(title="Select Folder Containing JPG Images")
         if not jpg_folder:
             return
+        image_files = [f for f in os.listdir(jpg_folder)
+                    if os.path.isfile(os.path.join(jpg_folder, f)) and f.lower().endswith(".jpg")]
         
         self.clear_project_general_data()
         self.crop_canvas.delete("all")
@@ -405,11 +401,7 @@ class ProjectViewerApp(tk.Tk):
         self.lb2.delete(0, tk.END)  # Clear existing items
         self.lb1.delete(0, tk.END)  # Clear existing items
 
-
-        image_files = [f for f in os.listdir(jpg_folder)
-                    if os.path.isfile(os.path.join(jpg_folder, f)) and f.lower().endswith(".jpg")]
-        # مسیر پوشه مقصد (project_folder/project_name/images)
-        project_folder = project_folder.replace("\\",  "/")
+        # مسیر پوشه مقصد (project_folder/images)
         project_image_folder = os.path.join(project_folder, "images").replace("\\",  "/")
 
         # اگر پوشه مقصد وجود نداشت، آن را ایجاد کنید
@@ -418,6 +410,7 @@ class ProjectViewerApp(tk.Tk):
         if jpg_folder == project_image_folder:
             messagebox.showinfo("تذکر", f"مبدا و مقصد یکسان هستند و نیازی به انتقال فایلها نیست.")
         else:
+            files_moved = [] # فایلهایی که با موفقیت جابجا شده اند
             # کپی تمام فایل‌های JPG به پوشه مقصد
             for image_file in image_files:
                 src_path = os.path.join(jpg_folder, image_file).replace("\\",  "/")
@@ -434,6 +427,7 @@ class ProjectViewerApp(tk.Tk):
                         pass
                     elif response:  # Yes (جایگزینی)
                         shutil.copy2(src_path, dst_path)
+                        files_moved.append(image_file)
                         messagebox.showinfo("جایگزینی موفق", f"فایل '{image_file}' با موفقیت جایگزین شد.")
                     else:  # No (ذخیره با نام جدید)
                         new_name = simpledialog.askstring(
@@ -446,13 +440,14 @@ class ProjectViewerApp(tk.Tk):
                                 new_name += '.jpg'
                             new_dst_path = os.path.join(project_image_folder, new_name).replace("\\",  "/")
                             shutil.copy2(src_path, new_dst_path)
+                            files_moved.append(new_name)
                             messagebox.showinfo("ذخیره موفق", f"فایل با نام جدید '{new_name}' ذخیره شد.")
                 else:
                     shutil.copy2(src_path, dst_path)
+                    files_moved.append(image_file)
 
         # به روز رسانی لیست تصاویر در فولدر جدید ساخته شده
-        image_files = [f for f in os.listdir(project_image_folder)
-                    if os.path.isfile(os.path.join(project_image_folder, f)) and f.lower().endswith(".jpg")]
+        image_files = files_moved
         # initialize project global information
         self.project_data["name"] = project_name
         self.project_data["project_folder"] = project_folder
@@ -461,6 +456,11 @@ class ProjectViewerApp(tk.Tk):
         self.Load_deep_learning_model()
 
         project_txt_path = os.path.join(project_folder, self.project_data["name"] + '_project.txt').replace("\\",  "/")
+        i = 0
+        while os.path.isfile(project_txt_path):
+            self.project_data["name"] += f'_{i}'
+            project_txt_path = os.path.join(project_folder, self.project_data["name"] + '_project.txt').replace("\\",  "/")
+
         try:
             with open(project_txt_path, "w", encoding="utf-8") as f:
                 f.write(f"Project: {project_name}\n\n")
@@ -490,8 +490,8 @@ class ProjectViewerApp(tk.Tk):
             project_name = self.project_data["name"]
             self.title(f"Project Viewer: {project_name}")
 
+            self.populate_image_list(image_files)
             if image_files:
-                self.populate_image_list(image_files)
                 self.img_index = 0
                 self.display_image() # Your method to display the image number self.img_index
                 # activate first image
@@ -508,11 +508,8 @@ class ProjectViewerApp(tk.Tk):
                 self.label_var.set("")
                 self.populate_rectangle_list()
                 self.crop_canvas.delete("all")
-
-
             else:
-                messagebox.showerror("Error", "No image is available in the folder you selected.")
-                return
+                messagebox.showerror("Warning", "No image is available in the folder you selected.\nAdd images if you want.", icon='warning')
             
             messagebox.showinfo(
                 "عملیات کامل شد",
@@ -698,7 +695,7 @@ class ProjectViewerApp(tk.Tk):
             f"عملیات اضافه کردن تصاویر جدید با موفقیت انجام شد.\nتعداد تصویر پردازش شده: {len(image_files)}")
 
 
-    def delet_image_from_project(self):
+    def delete_image_from_project(self):
         if self.img_index != None:
             fname = self.project_data["images"][self.img_index]
             response = messagebox.askyesnocancel(
@@ -775,7 +772,6 @@ class ProjectViewerApp(tk.Tk):
         else:
             return
 
-
     def save_project(self):
         """Save the current project data to a text file."""
         # Default file path is the same as the opened project
@@ -813,17 +809,17 @@ class ProjectViewerApp(tk.Tk):
                         f.write(f"Path to AI: {folder_path + '/' + os.path.basename(self.project_data['path_to_AI'])}\n\n")
 
                     # Write images list with index
-                    for idx, img in enumerate(self.project_data["images"], start=1):
-                        f.write(f"[{idx:03d}] {img}\n")
+                    for idx, image_file in enumerate(self.project_data["images"], start=1):
+                        f.write(f"[{idx:03d}] {image_file}\n")
                     
                     f.write("\nRectangles per image:\n")
                     
                     # Write rectangles for each image
-                    for idx, img in enumerate(self.project_data["images"], start=1):
-                        f.write(f"[{idx:03d}] {img}\n")
-                        rects = self.project_data["rectangles"][img]
-                        Locks = self.project_data["IsLocks"][img]
-                        Labels = self.project_data["Labels"][img]
+                    for idx, image_file in enumerate(self.project_data["images"], start=1):
+                        f.write(f"[{idx:03d}] {image_file}\n")
+                        rects = self.project_data["rectangles"][image_file]
+                        Locks = self.project_data["IsLocks"][image_file]
+                        Labels = self.project_data["Labels"][image_file]
                         if rects:
                             for rcs, (x1, y1, x2, y2) in enumerate(rects):
                                 f.write(f"\tRect: ({x1:.6f}, {y1:.6f}), ({x2:.6f}, {y2:.6f})\n")
@@ -845,35 +841,30 @@ class ProjectViewerApp(tk.Tk):
                     f.write("\n")  # End of file
                 
                 # move images
-                # اگر فولدر مقصد وجود دارد، محتوا را جایگزین کنید
-                if os.path.exists(os.path.join(folder_path, 'images').replace("\\",  "/")):
-                    # کپی با جایگزینی فایل‌های تکراری
-                    source_folder = self.project_data['image_folder']
-                    destination_folder = os.path.join(folder_path, 'images').replace("\\",  "/")
+                try:
+                    jpg_folder = self.project_data["image_folder"].replace("\\",  "/")
+                    dst_folder = os.path.join(folder_path, 'images').replace("\\",  "/")
+                    os.makedirs(dst_folder, exist_ok=True)
+                    if os.path.exists(dst_folder) and os.path.exists(jpg_folder):
+                        for image_file in self.project_data["images"]:
+                            scr_path = os.path.join(jpg_folder, image_file)
+                            dst_path = os.path.join(dst_folder, image_file)
+                            if os.path.isfile(scr_path):
+                                if os.path.isfile(dst_path):
+                                    messagebox.showinfo('Warning', f'{image_file} already exists in destination folder!', icon='warning')
+                                shutil.copy2(scr_path, dst_path)
+                            else:
+                                messagebox.showinfo('Warning', f'{image_file} not found in source folder!\n You will have to add it manually or delete it from image list.', icon='warning')
+                    else:
+                        messagebox.showinfo('Error', 'Source or destination foldet for images doesnt Exist!', icon='error')
+                        return
+                    
+                    messagebox.showinfo("Success", "Project saved successfully.\n اگر قصد دارید پروژه‌ای را که اخیرا ذخیره کرده اید ویرایش کنید باید آنرا باز کنید. در غیر این صورت فایل قدیم پروژه ویرایش خواهد شد. مگر اینکه مبدا و مقصد یکی بوده باشند.")
+                except Exception as e:
+                    messagebox.showerror("Error", f"Error happend during SaveAs operation\n{e}", icon='error')
 
-                    # تبدیل مسیرها به فرم استاندارد و مقایسه
-                    source_abs = os.path.abspath(source_folder)
-                    dest_abs = os.path.abspath(destination_folder)
-
-                    if source_abs != dest_abs:
-                        shutil.copytree(
-                            source_folder,
-                            destination_folder,
-                            dirs_exist_ok=True,
-                            copy_function=shutil.copy2
-                        )
-                else:
-                    # اگر فولدر مقصد وجود ندارد، ایجادش کن
-                    shutil.copytree(self.project_data['image_folder'], os.path.join(folder_path, 'images').replace("\\",  "/"), copy_function=shutil.copy2)
-                # move AI file
-                if self.project_data['path_to_AI'] != "":
-                    try:
-                        shutil.copy2(self.project_data['path_to_AI'], folder_path)
-                    except:
-                        True
-                messagebox.showinfo("Success", "Project saved successfully.\n اگر قصد دارید پروژه‌ای را که اخیرا ذخیره کرده اید ویرایش کنید باید آنرا باز کنید. در غیر این صورت فایل قدیم پروژه ویرایش خواهد شد. مگر اینکه مبدا و مقصد یکی بوده باشند.")
             except Exception as e:
-                messagebox.showerror("Error", f"Could not save project comletely:\n{e}\nlas image moved is: {img}")
+                messagebox.showerror("Error", f"Could not save project comletely:\n{e}\nlast image moved is: {image_file}")
         else:
             project_txt_path = None
         return project_txt_path
@@ -1018,7 +1009,7 @@ class ProjectViewerApp(tk.Tk):
         left_button.pack(side=tk.LEFT, padx=1)
         right_button = ttk.Button(btn_frame, text="→", command=self.move_right, width=2)
         right_button.pack(side=tk.LEFT, padx=1)
-        delete_image = ttk.Button(btn_frame, text="delete image", command=self.delet_image_from_project, width=12)
+        delete_image = ttk.Button(btn_frame, text="delete image", command=self.delete_image_from_project, width=12)
         delete_image.pack(side=tk.RIGHT, padx=2)
         self.apply_ai = ttk.Button(btn_frame, text="Apply AI", command=self.Apply_deep_learning_model, width=8)
         self.apply_ai.pack(side=tk.RIGHT, padx=2)
@@ -1793,8 +1784,8 @@ class ProjectViewerApp(tk.Tk):
         """Populate the image listbox with image filenames."""
         self.lb1.delete(0, tk.END)  # Clear existing items
         if len(self.project_data["images"]) > 0:
-            for img_file in image_files:
-                self.lb1.insert(tk.END, img_file)  # Add each image file to the listbox
+            for idx, img_file in enumerate(image_files, start=1):
+                self.lb1.insert(tk.END, f'{idx:03d}: {img_file}')  # Add each image file to the listbox
         elif len(self.project_data["images"]) == 0:
             self.lb1.insert(tk.END, "No image: \n Add image")  # Add no image to the listbox
 
@@ -3286,9 +3277,9 @@ class ProjectViewerApp(tk.Tk):
                 messagebox.showerror("Error", f"Could not read project file:\n{e}")
                 return
             
-            if len(lines) < 4:
-                messagebox.showerror("Error", "Project file format is incorrect or incomplete.")
-                return
+        if len(lines) < 4:
+            messagebox.showerror("Error", "Project file format is incorrect or incomplete.")
+            return
 
         project_data = {
             "name": "",               # Project name (str)
@@ -3304,7 +3295,6 @@ class ProjectViewerApp(tk.Tk):
         if not lines[0].startswith("Project:"):
             messagebox.showerror("Error", "Project name not found in project file.")
             return
-
         project_data["name"] = lines[0][len("Project:"):].strip()
 
         if not lines[1].startswith("Project Folder:"):
@@ -3699,7 +3689,7 @@ class ProjectViewerApp(tk.Tk):
                 fname = self.project_data["images"][self.img_index]
                 image_path = os.path.join(self.project_data["image_folder"], fname).replace("\\",  "/")
 
-                results = self.model.predict(image_path)
+                results = self.model.predict(image_path, verbose=False)
                 prediction_coords = results[0].boxes.xywhn.cpu().numpy()
                 classs = results[0].boxes.cls.cpu().numpy()
                 names = results[0].names
@@ -3714,7 +3704,7 @@ class ProjectViewerApp(tk.Tk):
                 prediction_coords = prediction_coords[sorted_indices]   
                 classs = classs[sorted_indices].astype(int)   
                 if len(classs) > 0:
-                    if self.project_data["rectangles"][self.project_data["images"][self.img_index]] != []:
+                    if self.project_data["rectangles"][fname] != []:
                         do_message_flag = True
                         response = messagebox.askyesno(
                             title="اطلاعات موجود",
@@ -3722,9 +3712,9 @@ class ProjectViewerApp(tk.Tk):
                             icon=messagebox.WARNING
                         )
                         if not response:
-                            self.project_data["rectangles"][self.project_data["images"][self.img_index]] = []
-                            self.project_data["IsLocks"][self.project_data["images"][self.img_index]] = []
-                            self.project_data["Labels"][self.project_data["images"][self.img_index]] = []
+                            self.project_data["rectangles"][fname] = []
+                            self.project_data["IsLocks"][fname] = []
+                            self.project_data["Labels"][fname] = []
 
                     for i in range(len(sorted_indices)):
                         x1 = prediction_coords[i][0] - prediction_coords[i][2] / 2
@@ -3732,9 +3722,9 @@ class ProjectViewerApp(tk.Tk):
                         y1 = prediction_coords[i][1] - prediction_coords[i][3] / 2
                         y2 = prediction_coords[i][1] + prediction_coords[i][3] / 2
 
-                        self.project_data["rectangles"][self.project_data["images"][self.img_index]].append((x1,y1,x2,y2))
-                        self.project_data["IsLocks"][self.project_data["images"][self.img_index]].append(False)
-                        self.project_data["Labels"][self.project_data["images"][self.img_index]].append(names[classs[i]])
+                        self.project_data["rectangles"][fname].append((x1,y1,x2,y2))
+                        self.project_data["IsLocks"][fname].append(False)
+                        self.project_data["Labels"][fname].append(names[classs[i]])
 
                     self.rect_index = 0
                     self.crop_cords = list((0, 0, 1, 1))
@@ -3763,7 +3753,7 @@ class ProjectViewerApp(tk.Tk):
                 if self.project_data["rectangles"][fname] == []:
                     try:
                         image_path = os.path.join(self.project_data["image_folder"], fname).replace("\\",  "/")
-                        results = self.model.predict(image_path)
+                        results = self.model.predict(image_path, verbose=False)
                         prediction_coords = results[0].boxes.xywhn.cpu().numpy()
                         classs = results[0].boxes.cls.cpu().numpy()
                         names = results[0].names
@@ -3808,6 +3798,220 @@ class ProjectViewerApp(tk.Tk):
             self.label_entry.icursor(tk.END)  # Move cursor to end of text
         
             messagebox.showinfo("Info", f" مدل هوش مصنوعی با آدرس \n{self.project_data["path_to_AI"]}\n روی تصاویری که شیئی در آنها مشخص نشده بود اجرا شد و نتیجه به لیست اشیا اضافه شد")
+
+
+    def Check_Label_Conflict(self):
+        # اگر هوش مصنوعی در صفحه حاضر یک کاراکتر با لیبل متفاوت نسبت به دیتاست تشخیص دهد آنرا به لیست اضافه خواهد کرد
+        self.Change_Persian_Characters_to_Label_names
+        def Caculate_IoU(rec, new_rec):
+            # استخراج مختصات مستطیل اول
+            x1_1, y1_1, x2_1, y2_1 = rec
+            # استخراج مختصات مستطیل دوم
+            x1_2, y1_2, x2_2, y2_2 = new_rec
+            
+            # محاسبه مساحت هر مستطیل
+            area1 = (x2_1 - x1_1) * (y2_1 - y1_1)
+            area2 = (x2_2 - x1_2) * (y2_2 - y1_2)
+            
+            # محاسبه مختصات مستطیل مشترک
+            x_left = max(x1_1, x1_2)
+            y_top = max(y1_1, y1_2)
+            x_right = min(x2_1, x2_2)
+            y_bottom = min(y2_1, y2_2)
+            
+            # محاسبه مساحت مشترک
+            intersection_area = 0
+            if x_right > x_left and y_bottom > y_top:
+                intersection_area = (x_right - x_left) * (y_bottom - y_top)
+            
+            # محاسبه مساحت ترکیب
+            union_area = area1 + area2 - intersection_area
+            # محاسبه IoU (Intersection over Union)
+            IoU = intersection_area / union_area if union_area > 0 else 0
+            return IoU
+
+        if self.model:
+            if self.img_index != None:
+                fname = self.project_data["images"][self.img_index]
+                image_path = os.path.join(self.project_data["image_folder"], fname).replace("\\",  "/")
+
+                results = self.model.predict(image_path, verbose=False)
+                prediction_coords = results[0].boxes.xywhn.cpu().numpy()
+                classs = results[0].boxes.cls.cpu().numpy()
+                names = results[0].names
+
+                # مرتب‌سازی بر اساس مختصات x مرکز
+                sorted_indices = np.argsort(prediction_coords[:, 0])[::-1]
+                prediction_coords = prediction_coords[sorted_indices]   
+                classs = classs[sorted_indices].astype(int)  
+
+                # تولید لیست تشخیص جدید
+                new_rectangles = []
+                new_IsLocks = []
+                new_Labels = []
+                for i in range(len(sorted_indices)):
+                    x1 = prediction_coords[i][0] - prediction_coords[i][2] / 2
+                    x2 = prediction_coords[i][0] + prediction_coords[i][2] / 2
+                    y1 = prediction_coords[i][1] - prediction_coords[i][3] / 2
+                    y2 = prediction_coords[i][1] + prediction_coords[i][3] / 2
+
+                    new_rectangles.append((x1,y1,x2,y2))
+                    new_IsLocks.append(False)
+                    new_Labels.append(names[classs[i]])
+
+                # بررسی همپوشانی‌ها با پارامتر IoU
+                for idx, rec in  enumerate(self.project_data["rectangles"][fname]):
+                    for idy, new_rec in enumerate(new_rectangles):
+                        IoU = Caculate_IoU(rec, new_rec)
+
+                        if IoU > 0.93 and new_Labels[idy]==self.project_data["Labels"][fname][idx]:
+                            del new_rectangles[idy]
+                            del new_IsLocks[idy]
+                            del new_Labels[idy]
+                            continue
+                for idy, new_rec in enumerate(new_rectangles):
+                    max_match_rec_idx = None
+                    max_IoU = 0.0
+                    for idx, rec in  enumerate(self.project_data["rectangles"][fname]):
+                        IoU = Caculate_IoU(rec, new_rec)
+                        if IoU > max_IoU:
+                            max_match_rec_idx = idx
+                            max_IoU = IoU
+                    if max_match_rec_idx != None:
+                        # self.project_data["IsLocks"][fname][max_match_rec_idx] = False
+                        if max_IoU > 0.9 and new_Labels[idy]!=self.project_data["Labels"][fname][max_match_rec_idx]:
+                            print(f"In {fname}, new rec {idy:>3d}: {new_Labels[idy]:<6s} has conflict with rec {max_match_rec_idx + 1:>3d}: {self.project_data["Labels"][fname][max_match_rec_idx]:<6s} IoU = {max_IoU:0.4f}")
+                            self.project_data["rectangles"][fname].insert(max_match_rec_idx+1, new_rec)
+                            self.project_data["IsLocks"][fname].insert(max_match_rec_idx+1, False)
+                            self.project_data["Labels"][fname].insert(max_match_rec_idx+1, new_Labels[idy])
+
+                messagebox.showinfo("Info", f" مدل هوش مصنوعی روی تصویر \n {fname}\n آزمایش شد")
+            else:
+                messagebox.showinfo("No image", "No image is selected,\nnot successful.")
+                return  # No image is selected
+            
+            self.rect_index = 0
+            self.crop_cords = list((0, 0, 1, 1))
+            self.zoom_factor = 1
+            self.refresh_image()  # Your method to display the image number self.img_index
+            self.draw_rectamgles()
+            self.populate_rectangle_list()  # Populate the rectangle list
+            self.update_edit_panel_and_image_crop()
+            self.label_entry.focus_set()                 # Set keyboard focus to the labeling box for better UX                
+            self.label_entry.icursor(tk.END)  # Move cursor to end of text
+
+        else:
+            messagebox.showinfo("No AI model", "No AI model is available,\nnot successful.")
+            return  # No AI model is available
+
+
+    def Check_All_Label_Conflict(self):
+        # اگر هوش مصنوعی در هر صفحه‌ای یک کاراکتر با لیبل متفاوت نسبت به دیتاست تشخیص دهد آنرا به لیست اضافه خواهد کرد
+        self.Change_Persian_Characters_to_Label_names
+        def Caculate_IoU(rec, new_rec):
+            # استخراج مختصات مستطیل اول
+            x1_1, y1_1, x2_1, y2_1 = rec
+            # استخراج مختصات مستطیل دوم
+            x1_2, y1_2, x2_2, y2_2 = new_rec
+            
+            # محاسبه مساحت هر مستطیل
+            area1 = (x2_1 - x1_1) * (y2_1 - y1_1)
+            area2 = (x2_2 - x1_2) * (y2_2 - y1_2)
+            
+            # محاسبه مختصات مستطیل مشترک
+            x_left = max(x1_1, x1_2)
+            y_top = max(y1_1, y1_2)
+            x_right = min(x2_1, x2_2)
+            y_bottom = min(y2_1, y2_2)
+            
+            # محاسبه مساحت مشترک
+            intersection_area = 0
+            if x_right > x_left and y_bottom > y_top:
+                intersection_area = (x_right - x_left) * (y_bottom - y_top)
+            
+            # محاسبه مساحت ترکیب
+            union_area = area1 + area2 - intersection_area
+            # محاسبه IoU (Intersection over Union)
+            IoU = intersection_area / union_area if union_area > 0 else 0
+            return IoU
+
+        if self.model:
+            Count_conflicts = 0
+            for image_idx, fname  in enumerate(self.project_data["images"]):
+                image_path = os.path.join(self.project_data["image_folder"], fname).replace("\\",  "/")
+
+                results = self.model.predict(image_path, verbose=False)
+                prediction_coords = results[0].boxes.xywhn.cpu().numpy()
+                classs = results[0].boxes.cls.cpu().numpy()
+                names = results[0].names
+
+                # مرتب‌سازی بر اساس مختصات x مرکز
+                sorted_indices = np.argsort(prediction_coords[:, 0])[::-1]
+                prediction_coords = prediction_coords[sorted_indices]   
+                classs = classs[sorted_indices].astype(int)  
+
+                # تولید لیست تشخیص جدید
+                new_rectangles = []
+                new_IsLocks = []
+                new_Labels = []
+                for i in range(len(sorted_indices)):
+                    x1 = prediction_coords[i][0] - prediction_coords[i][2] / 2
+                    x2 = prediction_coords[i][0] + prediction_coords[i][2] / 2
+                    y1 = prediction_coords[i][1] - prediction_coords[i][3] / 2
+                    y2 = prediction_coords[i][1] + prediction_coords[i][3] / 2
+
+                    new_rectangles.append((x1,y1,x2,y2))
+                    new_IsLocks.append(False)
+                    new_Labels.append(names[classs[i]])
+
+                # بررسی همپوشانی‌ها با پارامتر IoU
+                for idx, rec in  enumerate(self.project_data["rectangles"][fname]):
+                    for idy, new_rec in enumerate(new_rectangles):
+                        IoU = Caculate_IoU(rec, new_rec)
+
+                        if IoU > 0.93 and new_Labels[idy]==self.project_data["Labels"][fname][idx]:
+                            del new_rectangles[idy]
+                            del new_IsLocks[idy]
+                            del new_Labels[idy]
+                            continue
+                for idy, new_rec in enumerate(new_rectangles):
+                    max_match_rec_idx = None
+                    max_IoU = 0.0
+                    for idx, rec in  enumerate(self.project_data["rectangles"][fname]):
+                        IoU = Caculate_IoU(rec, new_rec)
+                        if IoU > max_IoU:
+                            max_match_rec_idx = idx
+                            max_IoU = IoU
+                    if max_match_rec_idx != None:
+                        # self.project_data["IsLocks"][fname][max_match_rec_idx] = False
+                        if max_IoU > 0.9 and new_Labels[idy]!=self.project_data["Labels"][fname][max_match_rec_idx]:
+                            print(f"In {fname}, new rec {idy:>3d}: {new_Labels[idy]:<6s} has conflict with rec {max_match_rec_idx + 1:>3d}: {self.project_data["Labels"][fname][max_match_rec_idx]:<6s} IoU = {max_IoU:0.4f}")
+                            self.project_data["rectangles"][fname].insert(max_match_rec_idx+1, new_rec)
+                            self.project_data["IsLocks"][fname].insert(max_match_rec_idx+1, False)
+                            self.project_data["Labels"][fname].insert(max_match_rec_idx+1, new_Labels[idy])
+                            Count_conflicts += 1
+            
+                self.apply_ai.config(text=f"{Count_conflicts}/{image_idx}")  
+                self.apply_ai.update()  # به روز رسانی فوری رابط کاربری
+ 
+            self.apply_ai.config(text="Apply AI")                    
+            self.apply_ai.update()  # به روز رسانی فوری رابط کاربری
+
+            messagebox.showinfo("Info", f"در مجموع تصاویر {Count_conflicts} اختلاف دیده شد. موارد جدید به صورت قفل نشده در لیست اضافه شده اند.")
+
+        else:
+            messagebox.showinfo("No AI model", "No AI model is available,\nnot successful.")
+            return  # No AI model is available
+
+        if (self.rect_index != None) and (self.img_index != None):
+            self.crop_cords = list((0, 0, 1, 1))
+            self.zoom_factor = 1
+            self.refresh_image()  # Your method to display the image number self.img_index
+            self.draw_rectamgles()
+            self.populate_rectangle_list()  # Populate the rectangle list
+            self.update_edit_panel_and_image_crop()
+            self.label_entry.focus_set()                 # Set keyboard focus to the labeling box for better UX                
+            self.label_entry.icursor(tk.END)  # Move cursor to end of text
 
 def main():
     app = ProjectViewerApp()
