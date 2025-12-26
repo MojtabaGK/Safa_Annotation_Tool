@@ -1172,12 +1172,21 @@ class ProjectViewerApp(tk.Tk):
         self.top_frame = tk.Frame(self.edit_frame, bg="#f0f0f0")
         self.top_frame.pack(pady=2)
 
+        # در این قسمت دکمه‌های تنظیم دقیق‌تر کادر دور شیء ایجاد می‌شوند. این دکمه‌ها قابلیت اسکرول هم دارند
         button_width = 6
+        # Top Frame
         self.left_top_button = ttk.Button(self.top_frame, text="↑", padding=0, width=button_width+3, command=self.move_top_up)
         self.left_top_button.pack(side=tk.TOP, padx=1)
+        self.left_top_button.bind("<MouseWheel>", self.on_top_scroll)
+        self.left_top_button.bind("<Button-4>", self.on_top_scroll_up)  # برای لینوکس/مک
+        self.left_top_button.bind("<Button-5>", self.on_top_scroll_down)  # برای لینوکس/مک
+
 
         self.right_top_button = ttk.Button(self.top_frame, text="Top\n  ↓ ", padding=0, width=button_width+3, command=self.move_top_down)
         self.right_top_button.pack(side=tk.TOP, padx=1)
+        self.right_top_button.bind("<MouseWheel>", self.on_top_scroll)
+        self.right_top_button.bind("<Button-4>", self.on_top_scroll_up)  # برای لینوکس/مک
+        self.right_top_button.bind("<Button-5>", self.on_top_scroll_down)  # برای لینوکس/مک
 
         # Left Frame
         self.left_frame2 = tk.Frame(self.edit_frame, bg="#f0f0f0")
@@ -1185,16 +1194,28 @@ class ProjectViewerApp(tk.Tk):
 
         self.up_left_button = ttk.Button(self.left_frame2, text="←", padding=0, width=button_width-3, command=self.move_left_left)
         self.up_left_button.pack(side=tk.LEFT, padx=0)
+        self.up_left_button.bind("<MouseWheel>", self.on_left_scroll)
+        self.up_left_button.bind("<Button-4>", self.on_left_scroll_up)  # برای لینوکس/مک
+        self.up_left_button.bind("<Button-5>", self.on_left_scroll_down)  # برای لینوکس/مک
 
         self.down_left_button = ttk.Button(self.left_frame2, text="Left →", padding=0, width=button_width+2, command=self.move_left_right)
         self.down_left_button.pack(side=tk.LEFT,  padx=(0, 10))
+        self.down_left_button.bind("<MouseWheel>", self.on_left_scroll)
+        self.down_left_button.bind("<Button-4>", self.on_left_scroll_up)  # برای لینوکس/مک
+        self.down_left_button.bind("<Button-5>", self.on_left_scroll_down)  # برای لینوکس/مک
 
         # Right Frame
         self.up_right_button = ttk.Button(self.left_frame2, text="← Right", padding=0, width=button_width+2, command=self.move_right_left)
         self.up_right_button.pack(side=tk.LEFT, padx=(10, 0))
+        self.up_right_button.bind("<MouseWheel>", self.on_right_scroll)
+        self.up_right_button.bind("<Button-4>", self.on_right_scroll_up)  # برای لینوکس/مک
+        self.up_right_button.bind("<Button-5>", self.on_right_scroll_down)  # برای لینوکس/مک
 
         self.down_right_button = ttk.Button(self.left_frame2, text="→", padding=0, width=button_width-3, command=self.move_right_right)
         self.down_right_button.pack(side=tk.LEFT,  padx=0)
+        self.down_right_button.bind("<MouseWheel>", self.on_right_scroll)
+        self.down_right_button.bind("<Button-4>", self.on_right_scroll_up)  # برای لینوکس/مک
+        self.down_right_button.bind("<Button-5>", self.on_right_scroll_down)  # برای لینوکس/مک
 
         # Bottom Frame
         self.bottom_frame = tk.Frame(self.edit_frame, bg="#f0f0f0")
@@ -1202,9 +1223,24 @@ class ProjectViewerApp(tk.Tk):
 
         self.left_bottom_button = ttk.Button(self.bottom_frame,padding=0,  text="     ↑\nBottom", width=button_width+3, command=self.move_bottom_up)
         self.left_bottom_button.pack(side=tk.TOP, padx=1)
+        self.left_bottom_button.bind("<MouseWheel>", self.on_But_scroll)
+        self.left_bottom_button.bind("<Button-4>", self.on_But_scroll_up)  # برای لینوکس/مک
+        self.left_bottom_button.bind("<Button-5>", self.on_But_scroll_down)  # برای لینوکس/مک
 
         self.right_bottom_button = ttk.Button(self.bottom_frame, text="↓",padding=0, width=button_width+3, command=self.move_bottom_down)
         self.right_bottom_button.pack(side=tk.TOP,  padx=1)
+        self.right_bottom_button.bind("<MouseWheel>", self.on_But_scroll)
+        self.right_bottom_button.bind("<Button-4>", self.on_But_scroll_up)  # برای لینوکس/مک
+        self.right_bottom_button.bind("<Button-5>", self.on_But_scroll_down)  # برای لینوکس/مک
+
+        # ایجاد متن توضیحی زیر دکمه
+        self.bottom_button_label = tk.Label(
+            self.bottom_frame, 
+            text="Click or hold Control\nand Scroll on Buttons",
+            font=("Tahoma", 8),
+            fg="gray"
+        )
+        self.bottom_button_label.pack(side=tk.TOP, pady=(2, 0))
 
         # Lableling Frame
         self.Lableling_frame = tk.Frame(self.edit_frame, bg="#f0f0f0")
@@ -1249,6 +1285,76 @@ class ProjectViewerApp(tk.Tk):
         self.delete_button = ttk.Button(self.delet_frame, text="Delete", padding=0,  command=self.delete_rectangle)
         self.delete_button.pack(side=tk.BOTTOM, padx=5, pady=(100,0))
 
+    # توابع لازم برای اسکرول کردن ضلع‌های جعبه دور شیء
+    def on_top_scroll(self, event):
+        """فقط اسکرول UP"""
+        if event.state & 0x0004:  # Control key mask
+            if event.delta > 0:  # اسکرول به بالا
+                self.move_top_up()
+            elif event.delta < 0:
+                self.move_top_down()
+
+    def on_top_scroll_up(self, event):
+        """برای لینوکس/مک"""
+        if event.state & 0x0004:  # Control key mask
+            self.move_top_up()
+    def on_top_scroll_down(self, event):
+        """برای لینوکس/مک"""
+        if event.state & 0x0004:  # Control key mask
+            self.move_top_down()
+
+    def on_But_scroll(self, event):
+        """فقط اسکرول UP"""
+        if event.state & 0x0004:  # Control key mask
+            if event.delta > 0:  # اسکرول به بالا
+                self.move_bottom_up()
+            elif event.delta < 0:
+                self.move_bottom_down()
+
+    def on_But_scroll_up(self, event):
+        """برای لینوکس/مک"""
+        if event.state & 0x0004:  # Control key mask
+            self.move_bottom_up()
+    def on_But_scroll_down(self, event):
+        """برای لینوکس/مک"""
+        if event.state & 0x0004:  # Control key mask
+            self.move_bottom_down()
+
+    def on_left_scroll(self, event):
+        """فقط اسکرول UP"""
+        if event.state & 0x0004:  # Control key mask
+            if event.delta > 0:  # اسکرول به بالا
+                self.move_left_left()
+            elif event.delta < 0:
+                self.move_left_right()
+
+    def on_left_scroll_up(self, event):
+        """برای لینوکس/مک"""
+        if event.state & 0x0004:  # Control key mask
+            self.move_left_left()
+    def on_left_scroll_down(self, event):
+        """برای لینوکس/مک"""
+        if event.state & 0x0004:  # Control key mask
+            self.move_left_right()
+
+    def on_right_scroll(self, event):
+        """فقط اسکرول UP"""
+        if event.state & 0x0004:  # Control key mask
+            if event.delta > 0:  # اسکرول به بالا
+                self.move_right_right()
+            elif event.delta < 0:
+                self.move_right_left()
+
+    def on_right_scroll_up(self, event):
+        """برای لینوکس/مک"""
+        if event.state & 0x0004:  # Control key mask
+            self.move_right_right()
+    def on_right_scroll_down(self, event):
+        """برای لینوکس/مک"""
+        if event.state & 0x0004:  # Control key mask
+            self.move_right_left()
+
+    # توابع مربوط به درگ عکس اصلی
     def start_drag(self, event):
         """شروع درگ با ذخیره موقعیت کلیک راست."""
         self.drag_start = (event.x, event.y)
