@@ -1,4 +1,4 @@
-![Downloads](https://img.shields.io/github/downloads/MojtabaGK/Labeling_App_OCR/Shahname_V6.py.svg)
+![Downloads](https://img.shields.io/github/downloads/MojtabaGK/Labeling_App_OCR/total.svg)
 
 
 # Labeling_App_OCR
