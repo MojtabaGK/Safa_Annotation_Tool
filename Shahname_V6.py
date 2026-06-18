@@ -839,30 +839,53 @@ class ProjectViewerApp(tk.Tk):
                     for label in self.label_to_number:
                         f.write(f"{self.label_to_number[label]:02d}: \"{label}\"".ljust(16) + f" times appeared = {label_counter[label]:>4d} \n")
                     f.write("\n")  # End of file
-                
-                # move images
-                try:
-                    jpg_folder = self.project_data["image_folder"].replace("\\",  "/")
-                    dst_folder = os.path.join(folder_path, 'images').replace("\\",  "/")
-                    os.makedirs(dst_folder, exist_ok=True)
-                    if os.path.exists(dst_folder) and os.path.exists(jpg_folder):
-                        for image_file in self.project_data["images"]:
-                            scr_path = os.path.join(jpg_folder, image_file)
-                            dst_path = os.path.join(dst_folder, image_file)
-                            if os.path.isfile(scr_path):
-                                if os.path.isfile(dst_path):
-                                    messagebox.showinfo('Warning', f'{image_file} already exists in destination folder!', icon='warning')
-                                shutil.copy2(scr_path, dst_path)
-                            else:
-                                messagebox.showinfo('Warning', f'{image_file} not found in source folder!\n You will have to add it manually or delete it from image list.', icon='warning')
-                    else:
-                        messagebox.showinfo('Error', 'Source or destination foldet for images doesnt Exist!', icon='error')
-                        return
-                    
-                    messagebox.showinfo("Success", "Project saved successfully.\n اگر قصد دارید پروژه‌ای را که اخیرا ذخیره کرده اید ویرایش کنید باید آنرا باز کنید. در غیر این صورت فایل قدیم پروژه ویرایش خواهد شد. مگر اینکه مبدا و مقصد یکی بوده باشند.")
-                except Exception as e:
-                    messagebox.showerror("Error", f"Error happend during SaveAs operation\n{e}", icon='error')
-
+                                    
+                    # move images
+                    try:
+                        jpg_folder = self.project_data["image_folder"].replace("\\",  "/")
+                        dst_folder = os.path.join(folder_path, 'images').replace("\\",  "/")
+                        os.makedirs(dst_folder, exist_ok=True)
+                        if os.path.exists(dst_folder) and os.path.exists(jpg_folder):
+                            for image_file in self.project_data["images"]:
+                                scr_path = os.path.join(jpg_folder, image_file)
+                                dst_path = os.path.join(dst_folder, image_file)
+                                if scr_path !=  dst_path:
+                                    if os.path.isfile(scr_path):
+                                        if os.path.isfile(dst_path):
+                                            # بررسی هم‌نام و هم‌اندازه بودن فایل‌ها
+                                            if (os.path.getsize(scr_path) == os.path.getsize(dst_path) and 
+                                                os.path.getctime(scr_path) == os.path.getctime(dst_path)):
+                                                # فایل‌ها یکسان هستند - نیازی به کپی نیست
+                                                continue
+                                            else:
+                                                # فایل‌ها هم‌نام ولی با اندازه‌های متفاوت هستند -> هشدار بده
+                                                messagebox.showinfo('Warning', 
+                                                    f'{image_file} already exists in destination folder with different size!\n'
+                                                    f'Source size: {os.path.getsize(scr_path)} bytes\n'
+                                                    f'Destination size: {os.path.getsize(dst_path)} bytes', 
+                                                    icon='warning')
+                                                try:
+                                                    shutil.copy2(scr_path, dst_path)
+                                                except PermissionError:
+                                                    messagebox.showwarning('Warning', 
+                                                        f'Cannot copy {image_file} because it is being used by this program in image panel.\n'
+                                                        f'Please repeat SavaAs when another image is shown in panel', 
+                                                        icon='warning')
+                                                    return
+                                        else:
+                                            # فایل در مقصد وجود ندارد -> کپی کن
+                                            shutil.copy2(scr_path, dst_path)
+                                    else:
+                                        messagebox.showinfo('Warning', 
+                                            f'{image_file} not found in source folder!\n You will have to add it manually or delete it from image list.', 
+                                            icon='warning')
+                        else:
+                            messagebox.showinfo('Error', 'Source or destination folder for images doesnt Exist!', icon='error')
+                            return
+                        
+                        messagebox.showinfo("Success", "Project saved successfully.\n اگر قصد دارید پروژه‌ای را که اخیرا ذخیره کرده اید ویرایش کنید باید آنرا باز کنید. در غیر این صورت فایل قدیم پروژه ویرایش خواهد شد. مگر اینکه مبدا و مقصد یکی بوده باشند.")
+                    except Exception as e:
+                        messagebox.showerror("Error", f"Error happend during SaveAs operation\n{image_file}\n{e}", icon='error')
             except Exception as e:
                 messagebox.showerror("Error", f"Could not save project comletely:\n{e}\nlast image moved is: {image_file}")
         else:
@@ -1035,12 +1058,6 @@ class ProjectViewerApp(tk.Tk):
 
         Search = ttk.Button(btn_frame, text="🔎", command=self.Find_Persian_character_sequense2, width=3)
         Search.pack(side=tk.RIGHT, padx=2)
-
-
-
-
-
-
 
         # Canvas for image & rectangles - below buttons
         self.canvas = tk.Canvas(self.left_frame, bg='white', width=700, height=550)
