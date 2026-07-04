@@ -2288,7 +2288,7 @@ class ProjectViewerApp(tk.Tk):
 
         response = messagebox.askyesnocancel(
             title='Sort Direction?',
-            message='(YES) Should the image be displayed from top to bottom?\n\n(NO) Should the image be displayed horizontally?'
+            message='(YES) Should the image be displayed from top to bottom?\n\n(NO) Should the image be displayed horizontally?',
             icon='question'
             )
         if response == True:
