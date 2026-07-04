@@ -1,5 +1,3 @@
-![Downloads](https://img.shields.io/github/downloads/MojtabaGK/Safa_Annotation_Tool/total.svg)
-
 
 # Safa Annotation Tool (SafaAT)
 An App in python for labeling and managing annotation of small objects, optimized for OCR purposes.
