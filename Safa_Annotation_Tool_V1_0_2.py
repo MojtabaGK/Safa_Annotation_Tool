@@ -194,8 +194,8 @@ class ProjectViewerApp(tk.Tk):
         if self.project_data["path_to_AI"] != "":
             if os.path.exists(self.project_data["path_to_AI"]):
                 response = messagebox.askyesno(
-                    title="Artificial Intelligence Upload Help",
-                    message=f"Would you like to upload AI to the project to help with the upload of the label?",
+                    title="Load AI assistant model",
+                    message=f"Would you like to load an AI assistant model into the project to assist you with character labeling?",
                     icon=messagebox.QUESTION
                 )
                 if response:
@@ -320,11 +320,11 @@ class ProjectViewerApp(tk.Tk):
                             # اگر label جدید است، یک عدد جدید اختصاص بده
                             self.label_to_number[label] = number
                         else:
-                            messagebox.showerror("Error", f"Invalid format in line:\n{line}")
+                            messagebox.showerror("Error", f"Invalid format in line")
                     else:
-                        messagebox.showerror("Error", f"Invalid format in line:\n{line}")
+                        messagebox.showerror("Error", f"Invalid format in line")
                 else:
-                    messagebox.showerror("Error", f"Invalid format in line:\n{line}")
+                    messagebox.showerror("Error", f"Invalid format in line")
 
                 i += 1
 
@@ -513,7 +513,7 @@ class ProjectViewerApp(tk.Tk):
             
             messagebox.showinfo(
                 "Operation completed",
-                f"Creating the new project was successful.\nNumber of detected files in the project images folder: {len(image_files)}")
+                f"Creating the new project was successful.\nNumber of detected files in the images folder of the project: {len(image_files)}")
         except Exception as e:
             messagebox.showerror("Error", f"Could not initialize a new project properly:\n{e}")
 
@@ -525,7 +525,7 @@ class ProjectViewerApp(tk.Tk):
 
         responce_import_BBoxes = messagebox.askyesno(
             title = "Image with annotated objects",
-            message = "Should I check the file names to add them to the project?",
+            message = "Should I check .txt files with the same name as the image file for annotated objects to add them to the project?",
             icon=messagebox.WARNING
         )
         for image_file in new_image_files:
@@ -656,7 +656,7 @@ class ProjectViewerApp(tk.Tk):
                             Labels.append(label)
                             isLocks.append(False)
                         except Exception as e:
-                            messagebox.showerror("Error", f"Error processing line {i}: {str(e)}")
+                            messagebox.showerror("Error", f"Error in processing line {i}: {str(e)}")
                             continue
                 except Exception as e:
                     pass
@@ -710,7 +710,7 @@ class ProjectViewerApp(tk.Tk):
 
                 response = messagebox.askyesnocancel(
                     title = "Delete image from folder",
-                    message = f"Should the following image be removed from the project's images folder? {fname}",
+                    message = f"Should the following image be kept in the project's images folder? \n\n {fname}",
                     icon=messagebox.WARNING
                 )
                 if not response:
@@ -1643,7 +1643,7 @@ class ProjectViewerApp(tk.Tk):
 
     def Split_images_by_Label(self):
         # دریافت کلمه از کاربر
-        label = simpledialog.askstring("Label Input", "Please enter your desired label\nfor image classification:\n\n")
+        label = simpledialog.askstring("Label Input", "Please provide the label that will be used to split the project to a new project:")
         if not label:
             return # User cancelled folder selection
 
@@ -1785,7 +1785,7 @@ class ProjectViewerApp(tk.Tk):
 
     def Split_Current_image_by_Label(self):
         # دریافت کلمه از کاربر
-        label = simpledialog.askstring("Label Input", "Please enter your desired label\nfor image classification:\n\n")
+        label = simpledialog.askstring("Label Input", "Please provide the label that will be used to split the current image to a new project:")
         if not label:
             return # User cancelled folder selection
 
@@ -3828,8 +3828,8 @@ class ProjectViewerApp(tk.Tk):
                     if self.project_data["rectangles"][fname] != []:
                         do_message_flag = True
                         response = messagebox.askyesno(
-                            title = "Existing information",
-                            message = f"Should existing object annotations be shown for this image?",
+                            title = "Existing annotations",
+                            message = f"Should the existing object annotations be kept for this image?",
                             icon=messagebox.WARNING
                         )
                         if not response:
@@ -3860,7 +3860,7 @@ class ProjectViewerApp(tk.Tk):
                     messagebox.showinfo("Nothing", "Nothing is found in this image.")
                     return
                 if do_message_flag:
-                    messagebox.showinfo("Info", f"The AI model was run on the images at {self.project_data['path_to_AI']} and on {fname}, and the results were added as object annotations.")
+                    messagebox.showinfo("Info", f"The AI model at address {self.project_data['path_to_AI']} was run on the image {fname}, and the results were added to the list of annotated objects.")
             else:
                 messagebox.showinfo("No image", "No image is selected,\nnot successful.")
                 return  # No image is selected
@@ -3918,7 +3918,7 @@ class ProjectViewerApp(tk.Tk):
             self.label_entry.focus_set()                 # Set keyboard focus to the labeling box for better UX                
             self.label_entry.icursor(tk.END)  # Move cursor to end of text
         
-            messagebox.showinfo("Info", f"The AI model was run on the images at {self.project_data['path_to_AI']} and the results were added as object annotations.")
+            messagebox.showinfo("Info", f"The AI model at address {self.project_data['path_to_AI']} was run on all of the images with no annotated objects, and the results were added to their list of annotated objects.")
 
     def Check_Label_Conflict(self):
         # اگر هوش مصنوعی در صفحه حاضر یک کاراکتر با لیبل متفاوت نسبت به دیتاست تشخیص دهد آنرا به لیست اضافه خواهد کرد
@@ -4117,7 +4117,7 @@ class ProjectViewerApp(tk.Tk):
             self.apply_ai.config(text="Apply AI")                    
             self.apply_ai.update()  # به روز رسانی فوری رابط کاربری
 
-            messagebox.showinfo("Info", f"In total, {Count_conflicts} conflicts were detected. New items were added to the annotation list.")
+            messagebox.showinfo("Info", f"In total, {Count_conflicts} conflicts were detected. New items were added (not Locked) to the list of annotation objects.")
 
         else:
             messagebox.showinfo("No AI model", "No AI model is available,\nnot successful.")
