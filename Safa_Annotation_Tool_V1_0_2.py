@@ -697,7 +697,7 @@ class ProjectViewerApp(tk.Tk):
     def delete_image_from_project(self):
         if self.img_index != None:
             fname = self.project_data["images"][self.img_index]
-            response = messagebox.askyesnocancel(
+            response = messagebox.askyesno(
                 title = "Delete image from project",
                 message = f"Are you sure you want to delete the following image?\n\n  {fname}",
                 icon=messagebox.WARNING
@@ -708,7 +708,7 @@ class ProjectViewerApp(tk.Tk):
                 del self.project_data["Labels"][fname]
                 del self.project_data["images"][self.img_index]
 
-                response = messagebox.askyesnocancel(
+                response = messagebox.askyesno(
                     title = "Keep image in folder",
                     message = f"Should the following image be kept in the project's images folder? \n\n  {fname}",
                     icon=messagebox.WARNING
