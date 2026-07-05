@@ -320,11 +320,11 @@ class ProjectViewerApp(tk.Tk):
                             # اگر label جدید است، یک عدد جدید اختصاص بده
                             self.label_to_number[label] = number
                         else:
-                            messagebox.showerror("Error", f"Invalid format in line")
+                            messagebox.showerror("Error", f"Invalid format in line: {line}")
                     else:
-                        messagebox.showerror("Error", f"Invalid format in line")
+                        messagebox.showerror("Error", f"Invalid format in line: {line}")
                 else:
-                    messagebox.showerror("Error", f"Invalid format in line")
+                    messagebox.showerror("Error", f"Invalid format in line: {line}")
 
                 i += 1
 
@@ -541,7 +541,7 @@ class ProjectViewerApp(tk.Tk):
             if os.path.exists(txt_path) and responce_import_BBoxes:
                 responce_import_BBox_file = messagebox.askyesno(
                     title = "Image with annotated objects",
-                    message = ( f"A file with a similar name to the image {fname} was found.\nIt may contain object annotations for this image.\nDo you want me to load its contents and add it to the project?"),
+                    message = ( f"A file with a similar name to the image {fname} was found.\nIt may contain object annotations for this image.\nDo you want me to load its content and add it (as much as possible) to the project?"),
                     icon=messagebox.WARNING
                 )
 
@@ -699,7 +699,7 @@ class ProjectViewerApp(tk.Tk):
             fname = self.project_data["images"][self.img_index]
             response = messagebox.askyesnocancel(
                 title = "Delete image from project",
-                message = f"Are you sure you want to delete the following image? {fname}",
+                message = f"Are you sure you want to delete the following image?\n\n  {fname}",
                 icon=messagebox.WARNING
             )
             if response:
@@ -709,8 +709,8 @@ class ProjectViewerApp(tk.Tk):
                 del self.project_data["images"][self.img_index]
 
                 response = messagebox.askyesnocancel(
-                    title = "Delete image from folder",
-                    message = f"Should the following image be kept in the project's images folder? \n\n {fname}",
+                    title = "Keep image in folder",
+                    message = f"Should the following image be kept in the project's images folder? \n\n  {fname}",
                     icon=messagebox.WARNING
                 )
                 if not response:
@@ -2288,7 +2288,7 @@ class ProjectViewerApp(tk.Tk):
 
         response = messagebox.askyesnocancel(
             title='Sort Direction?',
-            message='(YES) Should the image be displayed from top to bottom?\n\n(NO) Should the image be displayed horizontally?',
+            message='(YES) The annotations should be sorted vertically (top to bottom)\n\n(NO) The annotations should be sorted horizontally (right to left)',
             icon='question'
             )
         if response == True:
@@ -3086,7 +3086,7 @@ class ProjectViewerApp(tk.Tk):
             self.crop_canvas.delete("all")
 
     def Export_to_YAML(self):
-        response = messagebox.askyesno("Caution", "Are you sure about the correctness of the labels and each label’s number?\n\nIn any case, the labels will be placed in the yaml file.")
+        response = messagebox.askyesno("Caution", "Are you sure about the correctness of the list of label’s ID number?\n\nIn any case, the labels will be written in the .yaml file.")
         if not response:
             return
         # شروع شمارش لیبلها
@@ -3165,7 +3165,7 @@ class ProjectViewerApp(tk.Tk):
             os.startfile(destination)
 
     def Export_Image_to_YAML(self):
-        response = messagebox.askyesno("Caution", "Are you sure about the correctness of the labels and each label’s number?\n\nIn any case, the labels will be placed in the yaml file under the image name.")
+        response = messagebox.askyesno("Caution", "Are you sure about the correctness of the list of labels ID numbers?\n\nIn any case, the labels will be written in a .yaml file with the same name as the image name.")
         if not response:
             return
             
@@ -3187,7 +3187,7 @@ class ProjectViewerApp(tk.Tk):
                 messagebox.showerror(title="Image Load Error", message=f"Failed to load image:\n{e}")
                 return
             
-            response = messagebox.askyesno("Locked or All", "Show all items in the file (Yes)\nShow only locked items in the file (No)")
+            response = messagebox.askyesno("Locked items or All", "(Yes) Export all the annotated objects to the YAML format\n(No) Export only locked annotated objects to the YAML format")
             rectangles = self.project_data["rectangles"][image]
             Labels = self.project_data["Labels"][image]
             for rec, coords in enumerate(rectangles):
@@ -3368,7 +3368,7 @@ class ProjectViewerApp(tk.Tk):
                         Labels.append(label)
                         isLocks.append(True)
                     except Exception as e:
-                        messagebox.showerror('Error', f"Error processing line {i}: {str(e)}")
+                        messagebox.showerror('Error', f"Error in processing line {i}: {str(e)}")
                         continue
 
             
@@ -3774,10 +3774,10 @@ class ProjectViewerApp(tk.Tk):
                 )
                 if AI_file:
                     self.project_data["path_to_AI"] = AI_file
-                    messagebox.showinfo("Success", "The AI model was successfully initialized")
+                    messagebox.showinfo("Success", "The AI assistant model was successfully initialized")
                     response = messagebox.askyesno(
                         title = "Transfer AI model to project folder",
-                        message = f"Would you like the AI model file to be copied into the project folder?",
+                        message = f"Would you like the AI assistant model file to be copied into the project folder?",
                         icon=messagebox.WARNING
                     )
                     if response:
@@ -3785,7 +3785,7 @@ class ProjectViewerApp(tk.Tk):
                             new_dst_path = os.path.join(self.project_data["project_folder"], os.path.basename(AI_file)).replace("\\",  "/")
                             shutil.copy2(self.project_data["path_to_AI"], new_dst_path)
                             self.project_data["path_to_AI"] = new_dst_path
-                            messagebox.showinfo("Info", f"The AI model was transferred to the project folder with the name {os.path.basename(AI_file)}")
+                            messagebox.showinfo("Info", f"The AI assistant model was copied to the project folder with the name\n  {os.path.basename(AI_file)}")
                         except Exception as e:
                             messagebox.showerror("Error", f"Could not add model to project folder:\n\n{e}")
                             
@@ -3860,7 +3860,7 @@ class ProjectViewerApp(tk.Tk):
                     messagebox.showinfo("Nothing", "Nothing is found in this image.")
                     return
                 if do_message_flag:
-                    messagebox.showinfo("Info", f"The AI model at address {self.project_data['path_to_AI']} was run on the image {fname}, and the results were added to the list of annotated objects.")
+                    messagebox.showinfo("Info", f"The AI model at address\n\n  {self.project_data['path_to_AI']}\nwas run on the image {fname},\nand the results were added to the list of annotated objects.")
             else:
                 messagebox.showinfo("No image", "No image is selected,\nnot successful.")
                 return  # No image is selected
@@ -3918,7 +3918,7 @@ class ProjectViewerApp(tk.Tk):
             self.label_entry.focus_set()                 # Set keyboard focus to the labeling box for better UX                
             self.label_entry.icursor(tk.END)  # Move cursor to end of text
         
-            messagebox.showinfo("Info", f"The AI model at address {self.project_data['path_to_AI']} was run on all of the images with no annotated objects, and the results were added to their list of annotated objects.")
+            messagebox.showinfo("Info", f"The AI model at address\n  {self.project_data['path_to_AI']}\nwas run on all of the images with no annotated objects,\nand the results were added to their list of annotated objects.")
 
     def Check_Label_Conflict(self):
         # اگر هوش مصنوعی در صفحه حاضر یک کاراکتر با لیبل متفاوت نسبت به دیتاست تشخیص دهد آنرا به لیست اضافه خواهد کرد
