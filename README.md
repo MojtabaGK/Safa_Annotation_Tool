@@ -16,7 +16,7 @@ Options:
 - Use of keyboard for easy labeling (needs personalization),
 - project splitting,
 - precisely modifiying annotaions,
-- personal Artificial Inteligence Assistant,
+- personal Artificial Intelligence Assistant,
 - Generation and modification of a YOLO compatible dataset, 
 - ....
 
