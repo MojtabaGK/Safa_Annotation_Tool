@@ -1000,47 +1000,30 @@ class ProjectViewerApp(tk.Tk):
 
 
     def _setup_widgets(self):
-        main_frame = ttk.Frame(self, padding=10, style='TFrame', width=1000, height=800)
+        main_frame = ttk.Frame(self, padding=10, style='TFrame', width=500, height=500)
         main_frame.pack(fill=tk.BOTH, expand=True)
 
-        # Left frame: contains buttons (top) and canvas (bottom)
-        self.left_frame = ttk.Frame(main_frame, width=750, height=500, style='Side.TFrame')
-        self.left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=False)
-        self.left_frame.pack_propagate(False)
+        # ایجاد PanedWindow به جای دو Frame جداگانه
+        paned_window = ttk.PanedWindow(main_frame, orient=tk.HORIZONTAL)
+        paned_window.pack(fill=tk.BOTH, expand=True)
 
+         # پنل چپ (همان left_frame سابق)
+        self.left_frame = ttk.Frame(paned_window, style='Side.TFrame')
+        paned_window.add(self.left_frame, weight=1)  
+
+        # پنل راست (همان right_frame سابق)
+        self.right_frame = ttk.Frame(paned_window, style='TFrame')
+        paned_window.add(self.right_frame, weight=1)  
+
+        # ######## Left Panel Configuration ##################
         # Button frame (under menu, above canvas)
         btn_frame = ttk.Frame(self.left_frame)
         btn_frame.pack(side=tk.TOP, fill=tk.X, padx=2, pady=2)
 
-        # self.split_button = ttk.Button(btn_frame, text="Split", command=self.Split_images_by_BoundingBoxes)
-        # self.split_button.pack(side=tk.LEFT, padx=5)
-
-
-        button3 = ttk.Button(btn_frame, text="←↕→", command=self.Zoom_in, width=4)
-        button3.pack(side=tk.LEFT, padx=2)
-
-        button4 = ttk.Button(btn_frame, text="→←", command=self.Zoom_out, width=4)
-        button4.pack(side=tk.LEFT, padx=2)
-
-        # Arrow Buttons
-        up_button = ttk.Button(btn_frame, text="↑", command=self.move_up, width=2)
-        up_button.pack(side=tk.LEFT, padx=1)
-        down_button = ttk.Button(btn_frame, text="↓", command=self.move_down, width=2)
-        down_button.pack(side=tk.LEFT, padx=1)
-        left_button = ttk.Button(btn_frame, text="←", command=self.move_left, width=2)
-        left_button.pack(side=tk.LEFT, padx=1)
-        right_button = ttk.Button(btn_frame, text="→", command=self.move_right, width=2)
-        right_button.pack(side=tk.LEFT, padx=1)
-        delete_image = ttk.Button(btn_frame, text="delete image", command=self.delete_image_from_project, width=12)
-        delete_image.pack(side=tk.RIGHT, padx=2)
-        self.apply_ai = ttk.Button(btn_frame, text="Apply AI", command=self.Apply_deep_learning_model, width=8)
-        self.apply_ai.pack(side=tk.RIGHT, padx=2)
         Backup = ttk.Button(btn_frame, text="Backup", command=self.Auto_save_project, width=8)
         Backup.pack(side=tk.RIGHT, padx=2)
         save = ttk.Button(btn_frame, text="Save As", command=self.save_project, width=8)
         save.pack(side=tk.RIGHT, padx=2)
-
-
 
         # Entry for Search text (اضافه شده)
         self.char_sequense2 = tk.StringVar()
@@ -1056,11 +1039,32 @@ class ProjectViewerApp(tk.Tk):
         self.Search_entry.pack(side=tk.RIGHT, padx=2)
 
         Search = ttk.Button(btn_frame, text="🔎", command=self.Find_Persian_character_sequense2, width=3)
-        Search.pack(side=tk.RIGHT, padx=2)
+        Search.pack(side=tk.RIGHT, padx=(20,2))        
+        # یک فضای خالی با expand=True برای پر کردن فاصله
+        spacer = ttk.Frame(btn_frame)
+        spacer.pack(side=tk.RIGHT, expand=True)
+
+        # Arrow Buttons
+        right_button = ttk.Button(btn_frame, text="→", command=self.move_right, width=2)
+        right_button.pack(side=tk.RIGHT, padx=1)
+        left_button = ttk.Button(btn_frame, text="←", command=self.move_left, width=2)
+        left_button.pack(side=tk.RIGHT, padx=1)
+        down_button = ttk.Button(btn_frame, text="↓", command=self.move_down, width=2)
+        down_button.pack(side=tk.RIGHT, padx=1)
+        up_button = ttk.Button(btn_frame, text="↑", command=self.move_up, width=2)
+        up_button.pack(side=tk.RIGHT, padx=1)
+
+        # Zoom Buttons
+        button3 = ttk.Button(btn_frame, text="←↕→", command=self.Zoom_in, width=4)
+        button3.pack(side=tk.RIGHT, padx=2)
+        button4 = ttk.Button(btn_frame, text="→←", command=self.Zoom_out, width=4)
+        button4.pack(side=tk.RIGHT, padx=2)
+
 
         # Canvas for image & rectangles - below buttons
-        self.canvas = tk.Canvas(self.left_frame, bg='white', width=700, height=550)
-        self.canvas.pack( padx=5, pady=5)
+        self.canvas = tk.Canvas(self.left_frame, bg='white', width=00, height=00)
+        # self.canvas.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        self.canvas.pack(expand=True, padx=5, pady=5)
 
         # Bind canvas resize to redraw image and rectangles appropriately
         self.canvas.bind("<Configure>", self.on_canvas_resize)
@@ -1076,32 +1080,37 @@ class ProjectViewerApp(tk.Tk):
         self.canvas.bind("<B3-Motion>", self.on_drag)    # درگ با کلیک راست
         self.canvas.bind("<ButtonRelease-3>", self.end_drag)  # رها کردن کلیک راست
 
-        # Right frame with 2 columns for lists and a box below for correction
-        self.right_frame = ttk.Frame(main_frame, style='TFrame')
-        self.right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(5, 0))
 
+        # ######## Right Panel Configuration ##################
 
-        # 1. فریمی برای نگهداری frame1 و frame2 کنار هم
-        self.list_container = ttk.Frame(self.right_frame)
-        self.list_container.pack(side=tk.TOP, fill=tk.BOTH, expand=True)  # ارتفاع بر اساس محتوا
+        # ============ PanedWindow عمودی برای تقسیم راست ============
+        self.right_paned = ttk.PanedWindow(self.right_frame, orient=tk.VERTICAL)
+        self.right_paned.pack(fill=tk.BOTH, expand=True)
 
-        # تنظیم سیستم grid برای توزیع فضای مناسب
-        self.list_container.grid_columnconfigure(0, weight=3, minsize=200, pad=0)  # وزن 2 برای lb1
-        self.list_container.grid_columnconfigure(1, weight=1, minsize=140, pad=0)  # وزن 1 برای lb2
-        self.list_container.grid_rowconfigure(0, weight=1)
+        # ---------- بخش بالایی (لیست‌ها) ----------
+        top_right_pane = ttk.Frame(self.right_paned, style='TFrame')
+        self.right_paned.add(top_right_pane, weight=1)  
+
+        # ============ PanedWindow افقی برای تقسیم لیست‌ها ============
+        list_paned = ttk.PanedWindow(top_right_pane, orient=tk.HORIZONTAL)
+        list_paned.pack(fill=tk.BOTH, expand=True)
+
+        # ---------- بخش چپ (Images) ----------
+        left_list_pane = ttk.Frame(list_paned, style='Listbox.TFrame')
+        list_paned.add(left_list_pane, weight=2)  
 
         # Frame 1: List of images (عرض دو برابر)
-        frame1 = ttk.Frame(self.list_container, style='Listbox.TFrame')
-        frame1.grid(row=0, column=0, sticky='nsew', padx=(5, 5), pady=(0, 5))
+        frame1 = ttk.Frame(left_list_pane, style='Listbox.TFrame')  # ← تغییر parent به left_list_pane
+        frame1.pack(fill=tk.BOTH, expand=True)  
 
         image_label = ttk.Label(frame1, text="Images", font=('Segoe UI', 10))
         image_label.pack(pady=(2, 1))
 
         # --- add a scrollable container for Images list ---
-        list1_container = ttk.Frame(frame1, style='Listbox.TFrame')
+        list1_container = ttk.Frame(frame1, style='Listbox.TFrame')  # ← اسم بدون تغییر
         list1_container.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
-        self.lb1 = tk.Listbox(list1_container, relief=tk.FLAT, borderwidth=0, font=('Segoe UI', 10),
+        self.lb1 = tk.Listbox(list1_container, relief=tk.FLAT, borderwidth=0, font=('Segoe UI', 10), width=5,
                               activestyle='none', selectbackground='#2563eb', selectforeground='white',
                               exportselection=False)
         self.lb1.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -1119,10 +1128,26 @@ class ProjectViewerApp(tk.Tk):
         # اتصال رویداد رها کردن دکمه موس به تابع
         self.lb1.bind('<ButtonRelease-1>', self.on_listbox_release)
 
+        # ایجاد یک فریم برای دکمه‌ها در پایین
+        button_frame = ttk.Frame(frame1, width=24)
+        button_frame.pack(side=tk.BOTTOM, pady=0)
 
-        # Frame 2: List of Bounding Boxes (عرض معمولی)
-        frame2 = ttk.Frame(self.list_container, style='Listbox.TFrame')
-        frame2.grid(row=0, column=1, sticky='nsew', padx=(5, 5), pady=(0, 5))
+        # دکمه‌ها در button_frame
+        delete_image = ttk.Button(button_frame, text="Delete Image", padding=1, 
+                                command=self.delete_image_from_project, width=12)
+        delete_image.pack(side=tk.LEFT, padx=2)
+
+        self.apply_ai = ttk.Button(button_frame, text="Apply AI", padding=1, 
+                                command=self.Apply_deep_learning_model, width=8)
+        self.apply_ai.pack(side=tk.RIGHT, padx=2)
+
+
+        # ---------- بخش راست (Bounding Boxes) ----------
+        right_list_pane = ttk.Frame(list_paned, style='Listbox.TFrame')
+        list_paned.add(right_list_pane, weight=1)  
+        # Frame 2: List of Bounding Boxes
+        frame2 = ttk.Frame(right_list_pane, style='Listbox.TFrame')
+        frame2.pack(fill=tk.BOTH, expand=True)
 
         rectangle_label = ttk.Label(frame2, text="Bounding Boxes", font=('Segoe UI', 10))
         rectangle_label.pack(pady=(2, 1))
@@ -1131,7 +1156,7 @@ class ProjectViewerApp(tk.Tk):
         list2_container = ttk.Frame(frame2, style='Listbox.TFrame')
         list2_container.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
-        self.lb2 = tk.Listbox(list2_container, relief=tk.FLAT, borderwidth=0, font=('Segoe UI', 10),
+        self.lb2 = tk.Listbox(list2_container, relief=tk.FLAT, borderwidth=0, font=('Segoe UI', 10), width=5,
                               activestyle='none', selectbackground='#2563eb', selectforeground='white',
                               exportselection=False)
         self.lb2.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -1149,22 +1174,27 @@ class ProjectViewerApp(tk.Tk):
         # اتصال رویداد رها کردن دکمه موس به تابع
         self.lb2.bind('<ButtonRelease-1>', self.on_listbox_release)
 
-        MoveUp_button = ttk.Button(frame2, text="↑", padding=0, width=5, command=self.move_rectangle_up)
-        MoveUp_button.pack(side=tk.LEFT, padx=0)
-        Auto_sort = ttk.Button(frame2, text="⇊ Sort ⇇", padding=0, width=10, command=self.Auto_sort_rectangles)
+        MoveUp_button = ttk.Button(frame2, text="↑", padding=1, width=5, command=self.move_rectangle_up)
+        MoveUp_button.pack(side=tk.LEFT, padx=(5, 0))
+        Auto_sort = ttk.Button(frame2, text="⇊ Sort ⇇", padding=1, width=10, command=self.Auto_sort_rectangles)
         Auto_sort.pack(side=tk.LEFT, expand=True, padx=0)
-        MoveDown_button = ttk.Button(frame2, text="↓", padding=0, width=5, command=self.move_rectangle_down)
-        MoveDown_button.pack(side=tk.RIGHT, padx=0)
+        Auto_sort = ttk.Button(frame2, text="Delete Box", padding=1, width=12, command=self.on_delete_box)
+        Auto_sort.pack(side=tk.LEFT, expand=True, padx=0)
+        MoveDown_button = ttk.Button(frame2, text="↓", padding=1, width=5, command=self.move_rectangle_down)
+        MoveDown_button.pack(side=tk.RIGHT, padx=(0, 5))
 
 
-        # 2. حالا فریم سوم با ارتفاع 300 زیر لیست‌ها اضافه شود
-        self.frame3 = ttk.Frame(self.right_frame, style='Listbox.TFrame', height=400)
-        self.frame3.pack(side=tk.BOTTOM, fill=tk.BOTH, padx=5, pady=(5, 0))
-        self.frame3.pack_propagate(False)  # جلوگیری از تغییر ارتفاع با محتوا
-       
+        # ---------- بخش پایینی (preview و دکمه‌های ویرایش) ----------
+        bottom_right_pane = ttk.Frame(self.right_paned, style='TFrame')
+        self.right_paned.add(bottom_right_pane, weight=1)  # 50% ارتفاع
+
+        # 2. فریم سوم (همان self.frame3)
+        self.frame3 = ttk.Frame(bottom_right_pane, style='Listbox.TFrame')  # حذف height=400
+        self.frame3.pack(fill=tk.BOTH, expand=True)  # حذف side=tk.BOTTOM و padx, pady
+
         # تنظیم سیستم grid برای توزیع فضای مناسب
-        self.frame3.grid_columnconfigure(0, weight=0, minsize=200, pad=0)  # وزن 1 برای edit_frame
-        self.frame3.grid_columnconfigure(1, weight=1, pad=0)  # وزن 2 برای canvas_frame
+        self.frame3.grid_columnconfigure(0, weight=0, minsize=200, pad=0)
+        self.frame3.grid_columnconfigure(1, weight=1, pad=0)
         self.frame3.grid_rowconfigure(0, weight=1)
 
         # Left Frame: Image Preview
@@ -1281,8 +1311,6 @@ class ProjectViewerApp(tk.Tk):
         self.label_entry.bind("<Return>", self.on_key_down)
         
 
-
-
         self.UnLock_button = ttk.Button(self.Lableling_frame, text="UnLock",padding=0, width=button_width+2, command=self.UnLock)
         self.UnLock_button.pack(side=tk.LEFT,  padx=2)
 
@@ -1296,10 +1324,10 @@ class ProjectViewerApp(tk.Tk):
         self.Lock_button.pack(side=tk.LEFT, padx=2)
 
         self.delet_frame = tk.Frame(self.edit_frame, bg="#f0f0f0")
-        self.delet_frame.pack(side=tk.BOTTOM,  pady=2)
+        self.delet_frame.pack(side=tk.TOP,  pady=2)
 
         self.delete_button = ttk.Button(self.delet_frame, text="Delete", padding=0,  command=self.delete_rectangle)
-        self.delete_button.pack(side=tk.BOTTOM, padx=5, pady=(100,0))
+        self.delete_button.pack(side=tk.TOP, padx=5, pady=(2,0))
 
     # توابع لازم برای اسکرول کردن ضلع‌های جعبه دور شیء
     def on_top_scroll(self, event):
@@ -2134,7 +2162,7 @@ class ProjectViewerApp(tk.Tk):
         if self._resize_timer:
             self.after_cancel(self._resize_timer)
         
-        self._resize_timer = self.after(50, self.on_frame_resize)
+        self._resize_timer = self.after(100, self.on_frame_resize)
 
     # تابعی برای تنظیم خودکار اندازه
     def on_frame_resize(self):
@@ -2364,19 +2392,46 @@ class ProjectViewerApp(tk.Tk):
             self.display_image()  # Your method to display the image number self.img_index
             self.draw_rectamgles()
             # Change the color of the selected rectangle to red
-            self.canvas.itemconfig(self.rec_IDs[self.rect_index], outline="purple")
+            self.canvas.itemconfig(self.rec_IDs[self.rect_index], outline='#39FF14', width=5)
 
             # Ask for confirmation
             answer = messagebox.askyesno(
                 "Confirm Deletion",
-                "Are you sure you want to delete this rectangle?",
+                "Are you sure you want to delete this annotation BBox?",
                 icon='warning'
             )
             if answer:
                 # Proceed with deletion
                 self.delete_rectangle()
             else:
-                self.canvas.itemconfig(self.rec_IDs[self.rect_index], outline="red")
+                self.canvas.itemconfig(self.rec_IDs[self.rect_index], outline="red", width=2)
+                self.label_entry.focus_set()                 # Set keyboard focus to the labeling box for better UX                
+                self.label_entry.icursor(tk.END)  # Move cursor to end of text
+
+    def on_delete_box(self):
+        # Identify the clicked image item index
+        if self.img_index == None:
+            messagebox.showerror("Error", "No image is selected.")
+            return
+        # reset the color of previouse rectancle color is any
+        if self.rect_index != None:
+            if self.rect_index < 0 or self.rect_index > len(self.rec_IDs) or len(self.rec_IDs) == 0:
+                self.rect_index = None
+                self.label_var.set("")
+                return  # no item
+            self.canvas.itemconfig(self.rec_IDs[self.rect_index], outline='#39FF14', width=5)
+
+            # Ask for confirmation
+            answer = messagebox.askyesno(
+                "Confirm Deletion",
+                "Are you sure you want to delete this annotation BBox?",
+                icon='warning'
+            )
+            if answer:
+                # Proceed with deletion
+                self.delete_rectangle()
+            else:
+                self.canvas.itemconfig(self.rec_IDs[self.rect_index], outline="red", width=2)
                 self.label_entry.focus_set()                 # Set keyboard focus to the labeling box for better UX                
                 self.label_entry.icursor(tk.END)  # Move cursor to end of text
 
