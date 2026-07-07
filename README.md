@@ -20,8 +20,7 @@ Options:
 - Generation and modification of a YOLO compatible dataset, 
 - ....
 
-<img width="764" height="456" alt="Untitled" src="https://github.com/user-attachments/assets/a797073e-10f8-44e2-8c59-6482ec05026d" />
-
+<img width="722" height="451" alt="image" src="https://github.com/user-attachments/assets/4f2fafe4-cdad-46c6-8ce2-398e97f9b43a" />
 
 ***
 ## User Guide:
