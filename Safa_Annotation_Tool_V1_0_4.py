@@ -609,12 +609,11 @@ class ProjectViewerApp(tk.Tk):
                         self.project_data["rectangles"][fname] = [] 
                         self.project_data["IsLocks"][fname] = [] 
                         self.project_data["Labels"][fname] = [] 
-
+                        files_added += 1
                         if not fname in self.project_data["images"]:
                             image_files = self.project_data["images"]
                             image_files.append(fname)
                             self.project_data["images"] = image_files
-                            files_added += 1
                         resp = True
                     else:  # No (ذخیره با نام جدید)
                         name, ext = os.path.splitext(fname)  # جدا کردن نام و پسوند
@@ -645,7 +644,6 @@ class ProjectViewerApp(tk.Tk):
                                 image_files = self.project_data["images"]
                                 image_files.append(new_name)
                                 self.project_data["images"] = image_files
-                                files_added += 1
                             fname = new_name
                             resp = True
                 else:
@@ -658,7 +656,6 @@ class ProjectViewerApp(tk.Tk):
                     image_files = self.project_data["images"]
                     image_files.append(fname)
                     self.project_data["images"] = image_files
-                    files_added += 1
                     resp = True
 
             if responce_import_BBox_file and resp != None:
@@ -702,8 +699,7 @@ class ProjectViewerApp(tk.Tk):
                 self.project_data["IsLocks"][fname] = isLocks
                 self.project_data["Labels"][fname] = Labels
 
-            
-
+        image_files = self.project_data["images"]    
         self.populate_image_list(image_files)
         self.img_index = len(image_files) - 1
         self.display_image() # Your method to display the image number self.img_index
@@ -4225,7 +4221,7 @@ class ProjectViewerApp(tk.Tk):
 
                 except Exception as e:
                     self.title(f"Project Viewer: {self.project_data["name"]}")
-                    self.showerror(f"Error, AI assistant did not complete its job\n\n{e}")
+                    self.showerror(f'Error', 'AI assistant did not complete its job\n\n{e}')
                     continue
 
             self.title(f"Project Viewer: {self.project_data["name"]}")
@@ -4256,7 +4252,6 @@ class ProjectViewerApp(tk.Tk):
         - 'question': آیکون سوال (پیش‌فرض)
         """
         
-        # self.state('zoomed')       
         # ایجاد پنجره جدید
         dialog = tk.Toplevel(self)
         dialog.title(title)
@@ -4273,7 +4268,6 @@ class ProjectViewerApp(tk.Tk):
         
         # ========== ۳. غیرفعال کردن پنجره اصلی ==========
         dialog.transient(self)
-        self.attributes('-disabled', True)
         dialog.focus_force()
         dialog.configure(bg='#f0f0f0')        
 
@@ -4287,7 +4281,6 @@ class ProjectViewerApp(tk.Tk):
         # ========== بخش آیکون ==========
         icon_frame = ttk.Frame(main_frame, width=60, height=60)
         icon_frame.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 15))
-        icon_frame.pack_propagate(False)
         
         # انتخاب آیکون و رنگ مناسب
         icon_data = {
@@ -4365,8 +4358,6 @@ class ProjectViewerApp(tk.Tk):
        
         # منتظر ماندن برای بسته شدن پنجره
         dialog.wait_window()
-        self.attributes('-disabled', False)
-        self.focus_force()
 
         return result
     
@@ -4380,7 +4371,6 @@ class ProjectViewerApp(tk.Tk):
         - 'question': آیکون سوال (پیش‌فرض)
         """
         
-        # self.state('zoomed')       
         # ایجاد پنجره جدید
         dialog = tk.Toplevel(self)
         dialog.title(title)
@@ -4397,7 +4387,6 @@ class ProjectViewerApp(tk.Tk):
         
         # ========== ۳. غیرفعال کردن پنجره اصلی ==========
         dialog.transient(self)
-        self.attributes('-disabled', True)
         dialog.focus_force()
         dialog.configure(bg='#f0f0f0')        
 
@@ -4411,7 +4400,6 @@ class ProjectViewerApp(tk.Tk):
         # ========== بخش آیکون ==========
         icon_frame = ttk.Frame(main_frame, width=60, height=60)
         icon_frame.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 15))
-        icon_frame.pack_propagate(False)
         
         # انتخاب آیکون و رنگ مناسب
         icon_data = {
@@ -4490,8 +4478,6 @@ class ProjectViewerApp(tk.Tk):
        
         # منتظر ماندن برای بسته شدن پنجره
         dialog.wait_window()
-        self.attributes('-disabled', False)
-        self.focus_force()
 
         return result
     
@@ -4504,7 +4490,6 @@ class ProjectViewerApp(tk.Tk):
         - 'question': آیکون سوال (پیش‌فرض)
         """
         
-        # self.state('zoomed')       
         # ایجاد پنجره جدید
         dialog = tk.Toplevel(self)
         dialog.title(title)
@@ -4521,7 +4506,6 @@ class ProjectViewerApp(tk.Tk):
         
         # ========== ۳. غیرفعال کردن پنجره اصلی ==========
         dialog.transient(self)
-        self.attributes('-disabled', True)
         dialog.focus_force()
         dialog.configure(bg='#f0f0f0')        
        
@@ -4532,7 +4516,6 @@ class ProjectViewerApp(tk.Tk):
         # ========== بخش آیکون ==========
         icon_frame = ttk.Frame(main_frame, width=60, height=60)
         icon_frame.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 15))
-        icon_frame.pack_propagate(False)
         
         # انتخاب آیکون و رنگ مناسب
         icon_data = {
@@ -4591,8 +4574,6 @@ class ProjectViewerApp(tk.Tk):
 
         # منتظر ماندن برای بسته شدن پنجره
         dialog.wait_window()
-        self.attributes('-disabled', False)
-        self.focus_force()
 
         return 
     
