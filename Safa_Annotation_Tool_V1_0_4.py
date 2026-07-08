@@ -2,7 +2,7 @@
 
 import os
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox, simpledialog
+from tkinter import ttk, filedialog, simpledialog
 from PIL import Image, ImageTk 
 import shutil
 from ultralytics import YOLO
@@ -21,6 +21,7 @@ class ProjectViewerApp(tk.Tk):
         self._setup_styles()
         self._setup_menu()
         self._setup_widgets()
+        self.state('zoomed')
 
         self.model = None
         self.image_tk = None  # Keep reference to avoid GC
@@ -42,6 +43,7 @@ class ProjectViewerApp(tk.Tk):
         self.label_to_number = {}
         self.last_zoom_time = 0
         self.char_sequense = ""
+        self.IoU_Threshold = 0.8 #overlap threshold that means two BBoxes are the same
 
         self.project_data = {
             "name": "",               # Project name (str)
@@ -130,8 +132,8 @@ class ProjectViewerApp(tk.Tk):
         AI_menu.add_separator()  # اضافه کردن خط جداکننده
         AI_menu.add_command(label="Apply deep learning model to All images with no BBox", command=self.Apply_deep_learning_model_to_All)
         AI_menu.add_separator()  # اضافه کردن خط جداکننده
-        AI_menu.add_command(label="Check label conflict with the current image", command=self.Check_Label_Conflict)
-        AI_menu.add_command(label="Check label conflict with All images", command=self.Check_All_Label_Conflict)
+        AI_menu.add_command(label="Look for more objects by AI in the current image", command=self.Look_for_more_objects_by_AI)
+        AI_menu.add_command(label="Look for more objects by AI in All images", command=self.Look_for_more_objects_by_AI_All_images)
         menu_bar.add_cascade(label="File", menu=file_menu)
         menu_bar.add_cascade(label="Edit", menu=Edit_menu)
         menu_bar.add_cascade(label="Export", menu=Export_menu)
@@ -156,39 +158,39 @@ class ProjectViewerApp(tk.Tk):
             with open(project_txt_path, "r", encoding="utf-8") as f:
                 lines = [line.rstrip('\n') for line in f if line.strip()]
         except Exception as e:
-            messagebox.showerror("Error", f"Could not read project file:\n{e}")
+            self.showerror("Error", f"Could not read project file:\n{e}")
             return
         
         if len(lines) < 4:
-            messagebox.showerror("Error", "Project file format is incorrect or incomplete.")
+            self.showerror("Error", "Project file format is incorrect or incomplete.")
             return
 
         # Parse header info
         if not lines[0].startswith("Project:"):
-            messagebox.showerror("Error", "Project name not found in project file.")
+            self.showerror("Error", "Project name not found in project file.")
             return
         self.project_data["name"] = lines[0][len("Project:"):].strip()
 
         if not lines[1].startswith("Project Folder:"):
-            messagebox.showerror("Error", "Project folder path not found in project file.")
+            self.showerror("Error", "Project folder path not found in project file.")
             return
         self.project_data["project_folder"] = lines[1][len("Project Folder:"):].strip()
         check_folder = os.path.exists(self.project_data["project_folder"])
         if not check_folder:
             self.project_data["project_folder"] = os.path.abspath(os.path.dirname(project_txt_path))
-            messagebox.showinfo("Caution", f"Project folder didn't exist.\nWe suppose the current folder and continue.\n\n{self.project_data['project_folder']}")
+            self.showinfo("Caution", f"Project folder didn't exist.\nWe suppose the current folder and continue.\n\n{self.project_data['project_folder']}")
             
         if not lines[2].startswith("Image Folder:"):
-            messagebox.showerror("Error", "Image folder path not found in project file.")
+            self.showerror("Error", "Image folder path not found in project file.")
             return
         self.project_data["image_folder"] = lines[2][len("Image Folder:"):].strip()
         check_folder = os.path.exists(self.project_data["image_folder"])
         if not check_folder:
             self.project_data["image_folder"] = os.path.abspath(os.path.dirname(project_txt_path)) + '\\images'
-            messagebox.showinfo("Caution", f"Image folder didn't exist.\nWe suppose the default folder \"images\" and continue.\n\n{self.project_data['image_folder']}")
+            self.showinfo("Caution", f"Image folder didn't exist.\nWe suppose the default folder \"images\" and continue.\n\n{self.project_data['image_folder']}")
 
         if not lines[3].startswith("Path to AI:"):
-            messagebox.showerror("Error", "AI assistant model path not found in project file.")
+            self.showerror("Error", "AI assistant model path not found in project file.")
             return
         self.project_data["path_to_AI"] = lines[3][len("Path to AI:"):].strip()
 
@@ -202,7 +204,8 @@ class ProjectViewerApp(tk.Tk):
                 close_bracket_idx = line.find(']')
                 if close_bracket_idx != -1:
                     fname = line[close_bracket_idx+1:].strip()
-                    image_files.append(fname)
+                    if not (fname in image_files):
+                        image_files.append(fname)
             i += 1
         # مرتب‌سازی بر اساس نام فایل (الفبایی)
         image_files.sort()            
@@ -293,7 +296,7 @@ class ProjectViewerApp(tk.Tk):
                                         isLocks.append(lock_value.lower() == 'true')
                                         recLabels.append(class_value)
                                     else:
-                                        messagebox.showerror("Error", "File not compatible, Every Rectangle needs a property line after it like Lock:= () Class:=\"\"")
+                                        self.showerror("Error", "File not compatible, Every Rectangle needs a property line after it like Lock:= () Class:=\"\"")
                                         return
                                     
                         i += 1
@@ -320,7 +323,7 @@ class ProjectViewerApp(tk.Tk):
                     try:
                         number = int(parts[0].strip())  # تبدیل به عدد صحیح
                     except ValueError:
-                        messagebox.showerror("Error", f"Error: Invalid format in line:\n{line}")
+                        self.showerror("Error", f"Error: Invalid format in line:\n{line}")
                         continue
                     
                     # پیدا کردن متن داخل ""
@@ -333,11 +336,11 @@ class ProjectViewerApp(tk.Tk):
                             # اگر label جدید است، یک عدد جدید اختصاص بده
                             self.label_to_number[label] = number
                         else:
-                            messagebox.showerror("Error", f"Invalid format in line: {line}")
+                            self.showerror("Error", f"Invalid format in line: {line}")
                     else:
-                        messagebox.showerror("Error", f"Invalid format in line: {line}")
+                        self.showerror("Error", f"Invalid format in line: {line}")
                 else:
-                    messagebox.showerror("Error", f"Invalid format in line: {line}")
+                    self.showerror("Error", f"Invalid format in line: {line}")
 
                 i += 1
 
@@ -375,21 +378,21 @@ class ProjectViewerApp(tk.Tk):
             self.label_entry.icursor(tk.END)  # Move cursor to end of text
 
         else:
-            messagebox.showerror("Warning", "No image is available in the project you selected.\nAdd images if you want.", icon='warning')
+            self.showerror("Warning", "No image is available in the project you selected.\nAdd images if you want.", icon='warning')
         
-        messagebox.showinfo("Success", "Project opened successfully")
+        self.showinfo("Success", "Project opened successfully")
 
         if self.project_data["path_to_AI"] != "":
             if os.path.exists(self.project_data["path_to_AI"]):
                 try:
                     self.model = YOLO(self.project_data["path_to_AI"])
                     self.model.eval()
-                    messagebox.showinfo("AI loaded successfully", "AI assistant model loaded successfully.")
+                    self.showinfo("AI loaded successfully", "AI assistant model loaded successfully.")
                 except Exception as e:
-                    messagebox.showerror("Error", f"Could not load AI\n\n{self.project_data["path_to_AI"]}\n\nYou can load new AI later and try again\n\n{e}")
+                    self.showerror("Error", f"Could not load AI\n\n{self.project_data["path_to_AI"]}\n\nYou can load new AI later and try again\n\n{e}")
                     self.project_data["path_to_AI"] = ""
             else:
-                messagebox.showinfo("Error", "AI assistant model path is was not valid.\nYou can load another later.")
+                self.showinfo("Error", "AI assistant model path is was not valid.\nYou can load another later.")
                 self.project_data["path_to_AI"] = ""
 
     def new_project(self):
@@ -407,7 +410,7 @@ class ProjectViewerApp(tk.Tk):
                 os.makedirs(project_folder, exist_ok=True)
                 break  # Folder created successfully, exit loop
             except Exception as e:
-                messagebox.showerror("Error", f"Could not create project folder:\n\n{e}")
+                self.showerror("Error", f"Could not create project folder:\n\n{e}")
                 return
 
 
@@ -431,19 +434,21 @@ class ProjectViewerApp(tk.Tk):
         os.makedirs(project_image_folder, exist_ok=True)
 
         if jpg_folder == project_image_folder:
-            messagebox.showinfo("Reminder", f"The source and destination are the same and there is no need to transfer files.")
+            self.showinfo("Reminder", f"The source and destination are the same and there is no need to transfer files.")
         else:
             files_moved = [] # فایلهایی که با موفقیت جابجا شده اند
             # کپی تمام فایل‌های JPG به پوشه مقصد
             for image_file in image_files:
+                fname = os.path.basename(image_file)
+
                 src_path = os.path.join(jpg_folder, image_file).replace("\\",  "/")
                 dst_path = os.path.join(project_image_folder, image_file).replace("\\",  "/")
 
                 if os.path.exists(dst_path):
-                    response = messagebox.askyesnocancel(
+                    response = self.askyesnocancel(
                         title="File Manager",
-                        message=f"The file '{image_file}' already exists.\n\nDo you want to replace it?\n(Yes: Replace, No: Save with new name, Cancel: Cancel)",
-                        icon=messagebox.WARNING
+                        message=f"The file '{fname}' already exists.\n\nDo you want to replace it?",
+                        icon='question'
                     )
                     
                     if response is None:  # Cancel
@@ -451,11 +456,11 @@ class ProjectViewerApp(tk.Tk):
                     elif response:  # Yes (جایگزینی)
                         shutil.copy2(src_path, dst_path)
                         files_moved.append(image_file)
-                        messagebox.showinfo("Replacement successful", f"File '{image_file}' was successfully replaced.")
+                        self.showinfo("Replacement successful", f"File '{fname}' was successfully replaced.")
                     else:  # No (ذخیره با نام جدید)
                         new_name = simpledialog.askstring(
                             "New name",
-                            f"Enter a new name for file '{image_file}':",
+                            f"Enter a new name for file '{fname}':",
                             initialvalue=image_file
                         )
                         if new_name:
@@ -464,7 +469,7 @@ class ProjectViewerApp(tk.Tk):
                             new_dst_path = os.path.join(project_image_folder, new_name).replace("\\",  "/")
                             shutil.copy2(src_path, new_dst_path)
                             files_moved.append(new_name)
-                            messagebox.showinfo("Saved", f"The file has been saved with the new name '{new_name}'.")
+                            self.showinfo("Saved", f"The file has been saved with the new name '{new_name}'.")
                 else:
                     shutil.copy2(src_path, dst_path)
                     files_moved.append(image_file)
@@ -532,24 +537,25 @@ class ProjectViewerApp(tk.Tk):
                 self.populate_rectangle_list()
                 self.crop_canvas.delete("all")
             else:
-                messagebox.showerror("Warning", "No image is available in the folder you selected.\nAdd images if you want.", icon='warning')
+                self.showerror("Warning", "No image is available in the folder you selected.\nAdd images if you want.", icon='warning')
             
-            messagebox.showinfo(
+            self.showinfo(
                 "Operation completed",
                 f"Creating the new project was successful.\nNumber of detected files in the images folder of the project: {len(image_files)}")
         except Exception as e:
-            messagebox.showerror("Error", f"Could not initialize a new project properly:\n{e}")
+            self.showerror("Error", f"Could not initialize a new project properly:\n{e}")
 
     def Add_New_Image_to_Project(self):
+        files_added = 0
         new_image_files = filedialog.askopenfilenames(
             title="Select New Image Files",
             filetypes=[("Project Text Files", "*.jpg"), ("All Files", "*.*")]
         )
 
-        responce_import_BBoxes = messagebox.askyesno(
+        responce_import_BBoxes = self.askyesno(
             title = "Image with annotated objects",
             message = "Should I check .txt files with the same name as the image file for annotated objects to add them to the project?",
-            icon=messagebox.QUESTION
+            icon='question'
         )
         for image_file in new_image_files:
             # استخراج مسیر دایرکتوری
@@ -562,10 +568,10 @@ class ProjectViewerApp(tk.Tk):
             responce_import_BBox_file = None
             resp = None
             if os.path.exists(txt_path) and responce_import_BBoxes:
-                responce_import_BBox_file = messagebox.askyesno(
+                responce_import_BBox_file = self.askyesno(
                     title = "Image with annotated objects",
                     message = ( f"A file with a similar name to the image {fname} was found.\nIt may contain object annotations for this image.\nDo you want me to load its content and add it (as much as possible) to the project?"),
-                    icon=messagebox.QUESTION
+                    icon='question'
                 )
 
             if jpg_folder == self.project_data["image_folder"]:
@@ -577,7 +583,12 @@ class ProjectViewerApp(tk.Tk):
                     image_files = self.project_data["images"]
                     image_files.append(fname)
                     self.project_data["images"] = image_files
+                    files_added += 1
                     resp = True
+                else:
+                    self.showinfo('Warning',f'Image {fname} is currently in the project!')
+                    image_files = self.project_data["images"]
+                    pass
 
             else:
             # کپی تمام فایل‌های JPG به پوشه مقصد
@@ -585,17 +596,16 @@ class ProjectViewerApp(tk.Tk):
                 dst_path = os.path.join(self.project_data["image_folder"], fname).replace("\\",  "/")
 
                 if os.path.exists(dst_path):
-                    response = messagebox.askyesnocancel(
+                    response = self.askyesnocancel(
                         title = "Duplicate file",
-                        message = f"The file '{image_file}' already exists. Do you want to replace it? (Yes: Replace, No: Save with a new name, Cancel: Cancel)",
-                        icon=messagebox.WARNING
+                        message = f"The file '{fname}' already exists. Do you want to replace it?",
+                        icon='question'
                     )
-                    
                     if response is None:  # Cancel
                         pass
                     elif response:  # Yes (جایگزینی)
                         shutil.copy2(src_path, dst_path)
-                        messagebox.showinfo("Replacement successful", f"The file '{image_file}' was successfully replaced.")
+                        self.showinfo("Replacement successful", f"The file '{fname}' was successfully replaced.")
                         self.project_data["rectangles"][fname] = [] 
                         self.project_data["IsLocks"][fname] = [] 
                         self.project_data["Labels"][fname] = [] 
@@ -604,6 +614,7 @@ class ProjectViewerApp(tk.Tk):
                             image_files = self.project_data["images"]
                             image_files.append(fname)
                             self.project_data["images"] = image_files
+                            files_added += 1
                         resp = True
                     else:  # No (ذخیره با نام جدید)
                         name, ext = os.path.splitext(fname)  # جدا کردن نام و پسوند
@@ -616,7 +627,7 @@ class ProjectViewerApp(tk.Tk):
                         new_fname = f"{name}_{i-1}{ext}"      # ساخت نام جدید
                         new_name = simpledialog.askstring(
                             "New name",
-                            f"Enter a new name for the file '{image_file}':",
+                            f"Enter a new name for the file '{fname}':",
                             initialvalue = new_fname
                         )
                         if new_name:
@@ -624,15 +635,17 @@ class ProjectViewerApp(tk.Tk):
                                 new_name += '.jpg'
                             new_dst_path = os.path.join(self.project_data["image_folder"], new_name).replace("\\",  "/")
                             shutil.copy2(src_path, new_dst_path)
-                            messagebox.showinfo("Save successful", f"The file with the new name '{new_name}' has been saved.")
+                            self.showinfo("Save successful", f"The file with the new name '{new_name}' has been saved.")
                             self.project_data["rectangles"][new_name] = [] 
                             self.project_data["IsLocks"][new_name] = [] 
                             self.project_data["Labels"][new_name] = [] 
-                            
+                            files_added += 1
+
                             if not new_name in self.project_data["images"]:
                                 image_files = self.project_data["images"]
                                 image_files.append(new_name)
                                 self.project_data["images"] = image_files
+                                files_added += 1
                             fname = new_name
                             resp = True
                 else:
@@ -640,10 +653,12 @@ class ProjectViewerApp(tk.Tk):
                     self.project_data["rectangles"][fname] = [] 
                     self.project_data["IsLocks"][fname] = [] 
                     self.project_data["Labels"][fname] = [] 
+                    files_added += 1
 
                     image_files = self.project_data["images"]
                     image_files.append(fname)
                     self.project_data["images"] = image_files
+                    files_added += 1
                     resp = True
 
             if responce_import_BBox_file and resp != None:
@@ -663,7 +678,7 @@ class ProjectViewerApp(tk.Tk):
                             elif len(parts) == 5:  # بررسی تعداد المان‌ها
                                 label_txt, x_center, y_center, width, height = parts
                             else:
-                                messagebox.showerror('Error', f"Error in line {i}: {rect_line}")
+                                self.showerror('Error', f"Error in line {i}: {rect_line}")
                                 continue
                             label = ""
                             for labeli in self.label_to_number:
@@ -679,7 +694,7 @@ class ProjectViewerApp(tk.Tk):
                             Labels.append(label)
                             isLocks.append(False)
                         except Exception as e:
-                            messagebox.showerror("Error", f"Error in processing line {i}: {str(e)}")
+                            self.showerror("Error", f"Error in processing line {i}: {str(e)}")
                             continue
                 except Exception as e:
                     pass
@@ -713,34 +728,23 @@ class ProjectViewerApp(tk.Tk):
         self.label_entry.focus_set()
         self.label_entry.icursor(tk.END)  # Move cursor to end of text
   
-        messagebox.showinfo(
+        self.showinfo(
             "Operation completed",
-            f"The operation of adding new images was successful. Number of processed images: {len(image_files)}")
+            f"The operation of adding new images was successful.   {files_added}   images added to the project")
 
     def delete_image_from_project(self):
         if self.img_index != None:
             fname = self.project_data["images"][self.img_index]
-            response = messagebox.askyesno(
+            response = self.askyesno(
                 title = "Delete image from project",
                 message = f"Are you sure you want to delete the following image?\n\n  {fname}",
-                icon=messagebox.WARNING
+                icon='warning'
             )
             if response:
                 del self.project_data["rectangles"][fname]
                 del self.project_data["IsLocks"][fname]
                 del self.project_data["Labels"][fname]
                 del self.project_data["images"][self.img_index]
-
-                response = messagebox.askyesno(
-                    title = "Keep image in folder",
-                    message = f"Should the following image be kept in the project's images folder? \n\n  {fname}",
-                    icon=messagebox.WARNING
-                )
-                if not response:
-                    try:
-                        os.remove(os.path.join(self.project_data["image_folder"], fname)).replace("\\",  "/")
-                    except Exception as e:
-                        messagebox.showerror(title="Image Delete Error", message=f"Couldn't delete the image from the project images folder:\n{e}")
 
                 if len(self.project_data["images"]) > 0:
                     self.img_index = min(len(self.project_data["images"]) - 1, self.img_index)
@@ -788,7 +792,7 @@ class ProjectViewerApp(tk.Tk):
                 else:
                     self.canvas.delete("all")
                     self.image_tk = None
-                    messagebox.showerror("Error", "No image is available in the project you selected.")
+                    self.showerror("Error", "No image is available in the project you selected.")
                     return
                 
         else:
@@ -882,7 +886,7 @@ class ProjectViewerApp(tk.Tk):
                                                 continue
                                             else:
                                                 # فایل‌ها هم‌نام ولی با اندازه‌های متفاوت هستند -> هشدار بده
-                                                messagebox.showinfo('Warning', 
+                                                self.showinfo('Warning', 
                                                     f'{fname} already exists in destination folder with different size!\n'
                                                     f'Source size: {os.path.getsize(scr_path)} bytes\n'
                                                     f'Destination size: {os.path.getsize(dst_path)} bytes', 
@@ -890,7 +894,7 @@ class ProjectViewerApp(tk.Tk):
                                                 try:
                                                     shutil.copy2(scr_path, dst_path)
                                                 except PermissionError:
-                                                    messagebox.showwarning('Warning', 
+                                                    self.showwarning('Warning', 
                                                         f'Cannot copy {fname} because it is being used by this program in image panel.\n'
                                                         f'Please repeat SavaAs when another image is shown in panel', 
                                                         icon='warning')
@@ -899,18 +903,18 @@ class ProjectViewerApp(tk.Tk):
                                             # فایل در مقصد وجود ندارد -> کپی کن
                                             shutil.copy2(scr_path, dst_path)
                                     else:
-                                        messagebox.showinfo('Warning', 
+                                        self.showinfo('Warning', 
                                             f'{fname} not found in source folder!\n You will have to add it manually or delete it from image list.', 
                                             icon='warning')
                         else:
-                            messagebox.showinfo('Error', 'Source or destination folder for images doesnt Exist!', icon='error')
+                            self.showinfo('Error', 'Source or destination folder for images doesnt Exist!', icon='error')
                             return
                         
-                        messagebox.showinfo("Success", "Project saved successfully.\nIf you intend to edit the project you have recently saved, you must open it. Otherwise, the old project file will be edited. Unless the source and destination were the same.")
+                        self.showinfo("Success", "Project saved successfully.\nIf you intend to edit the project you have recently saved, you must open it. Otherwise, the old project file will be edited. Unless the source and destination were the same.")
                     except Exception as e:
-                        messagebox.showerror("Error", f"Error happened during SaveAs operation\n{fname}\n{e}", icon='error')
+                        self.showerror("Error", f"Error happened during SaveAs operation\n{fname}\n{e}", icon='error')
             except Exception as e:
-                messagebox.showerror("Error", f"Could not save project completely:\n{e}\nlast image moved is: {fname}")
+                self.showerror("Error", f"Could not save project completely:\n{e}\nlast image moved is: {fname}")
         else:
             project_txt_path = None
         return project_txt_path
@@ -924,7 +928,7 @@ class ProjectViewerApp(tk.Tk):
         if default_file_path:
             project_txt_path = os.path.join(default_file_path, self.project_data["name"] + '_project_Auto_Save.txt').replace("\\",  "/")
         else:
-            messagebox.showwarning('Warning', 'could not backup the project', icon='warning')
+            self.showwarning('Warning', 'could not backup the project', icon='warning')
 
         current_number = len(self.label_to_number)  # شمارنده برای labelهای جدید
 
@@ -982,7 +986,7 @@ class ProjectViewerApp(tk.Tk):
                     f.write("\n")  # End of file
       
             except:
-                messagebox.showwarning('Warning', 'could not backup the project truly', icon='warning')
+                self.showwarning('Warning', 'could not backup the project truly', icon='warning')
         else:
             project_txt_path = None
         return project_txt_path
@@ -1470,7 +1474,7 @@ class ProjectViewerApp(tk.Tk):
         last_char = new_text[-1] if new_text else None
         if last_char != None:
             if ord(last_char) == 63:
-                messagebox.showinfo("Type failed", "برای نوشتن اعداد از کیبورد انگلیسی استفاده کنید\n\nبرای نوشتن ممیز فارسی به انگلیسی کلمه زیر را تایپ کنید\nMMYZ")
+                self.showinfo("Type failed", "برای نوشتن اعداد از کیبورد انگلیسی استفاده کنید\n\nبرای نوشتن ممیز فارسی به انگلیسی کلمه زیر را تایپ کنید\nMMYZ")
                 return False
         # مجموعه کاراکترهای مجاز (برای سرعت بیشتر)
         allowed_chars = {
@@ -1492,7 +1496,7 @@ class ProjectViewerApp(tk.Tk):
         last_char = new_text[-1] if new_text else None
         if last_char != None:
             if ord(last_char) == 63:
-                messagebox.showinfo("Type failed", "برای نوشتن اعداد از کیبورد انگلیسی استفاده کنید\n\nبرای نوشتن ممیز فارسی به انگلیسی کلمه زیر را تایپ کنید\nMMYZ")
+                self.showinfo("Type failed", "برای نوشتن اعداد از کیبورد انگلیسی استفاده کنید\n\nبرای نوشتن ممیز فارسی به انگلیسی کلمه زیر را تایپ کنید\nMMYZ")
                 return False
         # مجموعه کاراکترهای مجاز (برای سرعت بیشتر)
         allowed_chars = {
@@ -1528,7 +1532,7 @@ class ProjectViewerApp(tk.Tk):
                 self.update_edit_panel_and_image_crop()
               
         except Exception as e:
-            messagebox.showerror("Error", f"Error in update_label_text: {str(e)}")
+            self.showerror("Error", f"Error in update_label_text: {str(e)}")
 
     def on_key_down(self, event):
         """مدیریت فشردن کلیدها"""
@@ -1627,7 +1631,7 @@ class ProjectViewerApp(tk.Tk):
                     self.canvas.itemconfig(self.rec_IDs[self.rect_index], outline="blue")  # Reset to original color
                     self.rect_index += 1
                 else:
-                    messagebox.showerror('Error', 'Something is going wrong. code 2112455')
+                    self.showerror('Error', 'Something is going wrong. code 2112455')
                     
                 self.project_data["rectangles"][self.project_data["images"][self.img_index]] = self.rectangles
                 self.project_data["IsLocks"][self.project_data["images"][self.img_index]] = self.IsLocks
@@ -1659,7 +1663,7 @@ class ProjectViewerApp(tk.Tk):
             try:
                 img = Image.open(image_full_path)
             except Exception as e:
-                messagebox.showerror(title="Image Load Error", message=f"Failed to load image:\n{e}\nIt is continued for other images.")
+                self.showerror(title="Image Load Error", message=f"Failed to load image:\n{e}\nIt is continued for other images.")
                 continue
             rectangles = self.project_data["rectangles"][fname]
             for rec, coords in enumerate(rectangles):
@@ -1685,11 +1689,11 @@ class ProjectViewerApp(tk.Tk):
                 new_path = os.path.join(destination, new_filename).replace("\\",  "/")
                 cropped_img.save(new_path, quality=95)  # تغییر این خط
 
-        messagebox.Message("The operation was completed successfully!")
-        proceed = messagebox.askyesno(
+        self.showinfo('Success','The operation was completed successfully!')
+        proceed = self.askyesno(
             "Success",
             f"Project split successfully.\nThe folder is:\n{destination}\n\n Do you want to open the folder?",
-            icon=messagebox.QUESTION
+            icon='question'
             )
         if proceed:
             os.startfile(destination)
@@ -1712,7 +1716,7 @@ class ProjectViewerApp(tk.Tk):
             try:
                 img = Image.open(image_full_path)
             except Exception as e:
-                messagebox.showerror(title="Image Load Error", message=f"Failed to load image:\n{e}\nIt is continued for other images.")
+                self.showerror(title="Image Load Error", message=f"Failed to load image:\n{e}\nIt is continued for other images.")
                 continue
             rectangles = self.project_data["rectangles"][fname]
             Lables = self.project_data["Labels"][fname]
@@ -1740,11 +1744,11 @@ class ProjectViewerApp(tk.Tk):
                     new_path = os.path.join(destination, new_filename).replace("\\",  "/")
                     cropped_img.save(new_path, quality=95)  # تغییر این خط
 
-        messagebox.Message("The operation was completed successfully!")
-        proceed = messagebox.askyesno(
+        self.showinfo('Success','The operation was completed successfully!')
+        proceed = self.askyesno(
             "Success",
             f"Project split successfully.\nThe destination folder is:\n{destination}\n\n Do you want to open the folder?",
-            icon=messagebox.QUESTION
+            icon='question'
             )
         if proceed:
             os.startfile(destination)
@@ -1764,24 +1768,24 @@ class ProjectViewerApp(tk.Tk):
                 os.makedirs(full_project_path, exist_ok=False)
                 project_folder = full_project_path
             except FileExistsError:
-                response = messagebox.askyesno(
+                response = self.askyesno(
                     "Folder Exists",
                     f"The folder '{full_project_path}' already exists.\n\n\nDo you want to continue and use this folder?",
-                    icon=messagebox.WARNING
+                    icon='warning'
                     )
                 if response:
                     project_folder = full_project_path
                 else:
                     return
             except Exception as e:
-                messagebox.showerror("Error", f"Could not create project folder:\n\n{e}")
+                self.showerror("Error", f"Could not create project folder:\n\n{e}")
                 return
 
             try:
                 os.makedirs(os.path.join(project_folder, 'images').replace("\\",  "/"), exist_ok=True)
                 project_image_folder = os.path.join(project_folder, 'images').replace("\\",  "/")
             except Exception as e:
-                messagebox.showerror("Error", f"Could not create images folder:\n\n{e}")
+                self.showerror("Error", f"Could not create images folder:\n\n{e}")
                 return
 
 
@@ -1791,7 +1795,7 @@ class ProjectViewerApp(tk.Tk):
             try:
                 img = Image.open(image_full_path)
             except Exception as e:
-                messagebox.showerror(title="Image Load Error", message=f"Failed to load image:\n{e}")
+                self.showerror(title="Image Load Error", message=f"Failed to load image:\n{e}")
                 return
             
             project_txt_path = os.path.join(project_folder, project_name + '_project.txt').replace("\\",  "/")
@@ -1831,13 +1835,13 @@ class ProjectViewerApp(tk.Tk):
                     f.write("\nnames:\n")
 
             except Exception as e:
-                messagebox.showerror("Error", f"Could not split current image by BBoxes properly:\n{e}")
+                self.showerror("Error", f"Could not split current image by BBoxes properly:\n{e}")
 
-        messagebox.Message("The operation was completed successfully!")
-        proceed = messagebox.askyesno(
+        self.showinfo('Success','The operation was completed successfully!')
+        proceed = self.askyesno(
             "Success",
             f"Project Splited successfully.\nThe destination folder is:\n{destination}\n\n Do you want to open the folder?",
-            icon=messagebox.QUESTION
+            icon='question'
             )
         if proceed:
             os.startfile(project_folder)
@@ -1859,7 +1863,7 @@ class ProjectViewerApp(tk.Tk):
             try:
                 img = Image.open(image_full_path)
             except Exception as e:
-                messagebox.showerror(title="Image Load Error", message=f"Failed to load image:\n{e}")
+                self.showerror(title="Image Load Error", message=f"Failed to load image:\n{e}")
                 return
             rectangles = self.project_data["rectangles"][fname]
             Lables = self.project_data["Labels"][fname]
@@ -1887,11 +1891,11 @@ class ProjectViewerApp(tk.Tk):
                     new_path = os.path.join(destination, new_filename).replace("\\",  "/")
                     cropped_img.save(new_path, quality=95)  # تغییر این خط
 
-        messagebox.Message("The operation was completed successfully!")
-        proceed = messagebox.askyesno(
+        self.showinfo('Success','The operation was completed successfully!')
+        proceed = self.askyesno(
             "Success",
             f"Project split successfully.\nThe destination folder is:\n{destination}\n\n Do you want to open the folder?",
-            icon=messagebox.QUESTION
+            icon='question'
             )
         if proceed:
             os.startfile(destination)
@@ -1953,14 +1957,14 @@ class ProjectViewerApp(tk.Tk):
                         if not os.path.exists(dest_file):
                             shutil.copy2(image_full_path, image_destination_path)
                         else:
-                            messagebox.showinfo("Info", f"This file exsisted in destination!!\n      {fname}.")
-                        messagebox.showinfo("Success", f"New Project is exported successfully with image\n      {fname}.")
+                            self.showinfo("Info", f"This file exsisted in destination!!\n      {fname}.")
+                        self.showinfo("Success", f"New Project is exported successfully with image\n      {fname}.")
                     except Exception as e:
-                        messagebox.showerror("Error", f"Could not copy image to destination:\n{e}\n image moved is: {fname}")
+                        self.showerror("Error", f"Could not copy image to destination:\n{e}\n image moved is: {fname}")
                 else:
-                    messagebox.showinfo("Info", f"Source and destination folders for images are the same\n      {source_abs}.")
+                    self.showinfo("Info", f"Source and destination folders for images are the same\n      {source_abs}.")
             except Exception as e:
-                messagebox.showerror("Error", f"Could not export project comletely for image\n      {fname}")
+                self.showerror("Error", f"Could not export project comletely for image\n      {fname}")
 
 
     def populate_image_list(self, image_files):
@@ -2099,7 +2103,7 @@ class ProjectViewerApp(tk.Tk):
 
             except Exception as e:
                 self.image_tk = None
-                messagebox.showerror(title="Image Load Error", message=f"Failed to load image:\n{e}")
+                self.showerror(title="Image Load Error", message=f"Failed to load image:\n{e}")
         else:
             self.image_tk = None
 
@@ -2139,7 +2143,7 @@ class ProjectViewerApp(tk.Tk):
                 self.canvas.create_image(scaled_width//2, scaled_height//2, anchor=tk.CENTER, image=self.image_tk)
 
             except Exception as e:
-                messagebox.showerror(title="Image Load Error", message=f"Failed to load image:\n{e}")
+                self.showerror(title="Image Load Error", message=f"Failed to load image:\n{e}")
 
     def on_canvas_resize(self, event):
         self.canvas.delete("all")
@@ -2176,7 +2180,7 @@ class ProjectViewerApp(tk.Tk):
                 # self.image_area = (0, 0, scaled_width, scaled_height)
 
             except Exception as e:
-                messagebox.showerror(title="Image Load Error", message=f"Failed to load image:\n{e}")
+                self.showerror(title="Image Load Error", message=f"Failed to load image:\n{e}")
 
             if self.image_tk  != None:
                 self.rectangles = self.project_data["rectangles"][self.project_data["images"][self.img_index]]  # Load rectangles for the selected image
@@ -2343,11 +2347,11 @@ class ProjectViewerApp(tk.Tk):
     def Auto_sort_rectangles(self):
         # Identify the clicked image item index
         if self.img_index == None:
-            messagebox.showerror("Error", "No image is selected.")
+            self.showerror("Error", "No image is selected.")
             return
         fname = self.project_data["images"][self.img_index]
 
-        response = messagebox.askyesnocancel(
+        response = self.askyesnocancel(
             title='Sort Direction?',
             message='(YES) The annotations should be sorted vertically (top to bottom)\n\n(NO) The annotations should be sorted horizontally (right to left)',
             icon='question'
@@ -2384,18 +2388,18 @@ class ProjectViewerApp(tk.Tk):
             self.label_entry.icursor(tk.END)  # Move cursor to end of text
 
             if response == True:
-                messagebox.showinfo('Success', 'List is successfully sorted vertically.')  # Vertically
+                self.showinfo('Success', 'List is successfully sorted vertically.')  # Vertically
             elif response == False:
-                messagebox.showinfo('Success', 'List is successfully sorted horisontally.') # Horisontally
+                self.showinfo('Success', 'List is successfully sorted horisontally.') # Horisontally
 
         else:
             self.rect_index = None
-            messagebox.showerror('Error', 'List is empty.')
+            self.showerror('Error', 'List is empty.')
 
     def on_rectangle_right_click(self, event):
         # Identify the clicked image item index
         if self.img_index == None:
-            messagebox.showerror("Error", "No image is selected.")
+            self.showerror("Error", "No image is selected.")
             return
         else:
             # reset the color of previouse rectancle color is any
@@ -2428,12 +2432,13 @@ class ProjectViewerApp(tk.Tk):
             self.canvas.itemconfig(self.rec_IDs[self.rect_index], outline='#39FF14', width=5)
 
             # Ask for confirmation
-            answer = messagebox.askyesno(
-                "Confirm Deletion",
-                "Are you sure you want to delete this annotation BBox?",
-                icon='warning'
+            response = self.askyesno(
+                title="Confirm Deletion",
+                message="Are you sure you want to delete this annotation BBox?",
+                icon='warning'  # یا 'info'، 'warning'، 'error'
             )
-            if answer:
+
+            if response:
                 # Proceed with deletion
                 self.delete_rectangle()
             else:
@@ -2444,7 +2449,7 @@ class ProjectViewerApp(tk.Tk):
     def on_delete_box(self):
         # Identify the clicked image item index
         if self.img_index == None:
-            messagebox.showerror("Error", "No image is selected.")
+            self.showerror("Error", "No image is selected.")
             return
         # reset the color of previouse rectancle color is any
         if self.rect_index != None:
@@ -2455,7 +2460,7 @@ class ProjectViewerApp(tk.Tk):
             self.canvas.itemconfig(self.rec_IDs[self.rect_index], outline='#39FF14', width=5)
 
             # Ask for confirmation
-            answer = messagebox.askyesno(
+            answer = self.askyesno(
                 "Confirm Deletion",
                 "Are you sure you want to delete this annotation BBox?",
                 icon='warning'
@@ -2849,7 +2854,7 @@ class ProjectViewerApp(tk.Tk):
                 if chr in self.Str_to_name:
                     Label_sequense.append(self.Str_to_name[chr])
                 else:
-                    messagebox.showerror('Error', f"This character is not in our Persian character list:\n\"{chr}\"")
+                    self.showerror('Error', f"This character is not in our Persian character list:\n\"{chr}\"")
                     continue
 
             if self.rect_index != None:
@@ -2913,7 +2918,7 @@ class ProjectViewerApp(tk.Tk):
                 if chr in self.Str_to_name:
                     Label_sequense.append(self.Str_to_name[chr])
                 else:
-                    messagebox.showerror('Error', f"This character is not in our Persian character list:\n\"{chr}\"")
+                    self.showerror('Error', f"This character is not in our Persian character list:\n\"{chr}\"")
                     continue
 
             if self.rect_index != None:
@@ -3178,8 +3183,8 @@ class ProjectViewerApp(tk.Tk):
             self.crop_canvas.delete("all")
 
     def Export_to_YAML(self):
-        response = messagebox.askyesno("Caution", "Are you sure about the correctness of the list of label’s ID number?\n\nIn any case, the labels will be written in the .yaml file.",
-            icon=messagebox.WARNING
+        response = self.askyesno("Caution", "Are you sure about the correctness of the list of label’s ID number?\n\nIn any case, the labels will be written in the .yaml file.",
+            icon='warning'
             )
         if not response:
             return
@@ -3199,7 +3204,7 @@ class ProjectViewerApp(tk.Tk):
                 try:
                     img = Image.open(image_full_path)
                 except Exception as e:
-                    messagebox.showerror(title="Image Load Error", message=f"Failed to load image:\n{e}")
+                    self.showerror(title="Image Load Error", message=f"Failed to load image:\n{e}")
                     return
                 
                 Labels = self.project_data["Labels"][image]
@@ -3251,18 +3256,18 @@ class ProjectViewerApp(tk.Tk):
                 txt_file.write("\n")
                 
 
-        messagebox.Message("The operation was completed successfully!")
-        proceed = messagebox.askyesno(
+        self.showinfo('Success','The operation was completed successfully!')
+        proceed = self.askyesno(
             "Success",
             f"Project split successfully.\nThe destination folder is:\n{destination}\n\n Do you want to open the folder?" ,
-            icon=messagebox.QUESTION
+            icon='question'
             )
         if proceed:
             os.startfile(destination)
 
     def Export_Image_to_YAML(self):
-        response = messagebox.askyesno("Caution", "Are you sure about the correctness of the list of labels ID numbers?\n\nIn any case, the labels will be written in a .yaml file with the same name as the image name.",
-            icon=messagebox.WARNING
+        response = self.askyesno("Caution", "Are you sure about the correctness of the list of labels ID numbers?\n\nIn any case, the labels will be written in a .yaml file with the same name as the image name.",
+            icon='warning'
             )
         if not response:
             return
@@ -3282,11 +3287,11 @@ class ProjectViewerApp(tk.Tk):
             try:
                 img = Image.open(image_full_path)
             except Exception as e:
-                messagebox.showerror(title="Image Load Error", message=f"Failed to load image:\n{e}")
+                self.showerror(title="Image Load Error", message=f"Failed to load image:\n{e}")
                 return
             
-            response = messagebox.askyesno("Locked items or All", "(Yes) Export all the annotated objects to the YAML format\n\n\n(No) Export only locked annotated objects to the YAML format",
-                                            icon=messagebox.QUESTION
+            response = self.askyesno("Locked items or All", "(Yes) Export all the annotated objects to the YAML format\n\n\n(No) Export only locked annotated objects to the YAML format",
+                                            icon='question'
                                             )
             rectangles = self.project_data["rectangles"][image]
             Labels = self.project_data["Labels"][image]
@@ -3337,11 +3342,11 @@ class ProjectViewerApp(tk.Tk):
                 txt_file.write("\n")
 
 
-        messagebox.Message("The operation was completed successfully!")
-        proceed = messagebox.askyesno(
+        self.showinfo('Success','The operation was completed successfully!')
+        proceed = self.askyesno(
             "Success",
             f"Image exported in YAML format successfully.\nThe folder is:\n{destination}\n\n Do you want to open the folder?",
-            icon=messagebox.QUESTION
+            icon='question'
             )
         if proceed:
             os.startfile(destination)
@@ -3373,11 +3378,11 @@ class ProjectViewerApp(tk.Tk):
                 with open(Label_List_txt_path, "r", encoding="utf-8") as f:
                     lines = [line.rstrip('\n') for line in f if line.strip()]
             except Exception as e:
-                messagebox.showerror("Error", f"Could not read Label names file:\n{e}")
+                self.showerror("Error", f"Could not read Label names file:\n{e}")
                 return
             
             if len(lines) < 2:
-                messagebox.showerror("Error", "Project file format is incorrect or incomplete.")
+                self.showerror("Error", "Project file format is incorrect or incomplete.")
                 return
 
             # Skip header lines
@@ -3397,7 +3402,7 @@ class ProjectViewerApp(tk.Tk):
                     try:
                         number = int(parts[0].strip())  # تبدیل به عدد صحیح
                     except ValueError:
-                        messagebox.showerror("Error", f"خطا: عدد نامعتبر در خط:\n{line}")
+                        self.showerror("Error", f"خطا: عدد نامعتبر در خط:\n{line}")
                         continue
                     
                     # پیدا کردن متن داخل ""
@@ -3410,18 +3415,18 @@ class ProjectViewerApp(tk.Tk):
                             # اگر label جدید است، یک عدد جدید اختصاص بده
                             number_to_label[number] = label
                         else:
-                            messagebox.showerror("Error", f"Error: invalid number in line:\n{line}")
+                            self.showerror("Error", f"Error: invalid number in line:\n{line}")
                     else:
-                        messagebox.showerror("Error", f"Error: invalid format in line:\n{line}")
+                        self.showerror("Error", f"Error: invalid format in line:\n{line}")
                 else:
-                    messagebox.showerror("Error", f"Error: invalid format in line:\n{line}")
+                    self.showerror("Error", f"Error: invalid format in line:\n{line}")
 
                 i += 1
                     
         else:
-            messagebox.showinfo("Load failed", "No label list imported, not successful.")
+            self.showinfo("Load failed", "No label list imported, not successful.")
             return  # User cancelled file selection
-        messagebox.showinfo("Success", "New label list imported successfully.")
+        self.showinfo("Success", "New label list imported successfully.")
 
         image_files = [f for f in os.listdir(sourcepath)
                     if os.path.isfile(os.path.join(sourcepath, f)) and f.lower().endswith(".jpg")]
@@ -3458,7 +3463,7 @@ class ProjectViewerApp(tk.Tk):
                             label_txt, x_center, y_center, width, height = parts
                             label = number_to_label[int(label_txt)]
                         else:
-                            messagebox.showerror('Error', f"Error in line {i}: {rect_line}")
+                            self.showerror('Error', f"Error in line {i}: {rect_line}")
                             continue
                         x_center, y_center, width, height =  map(float, (x_center, y_center, width, height))
                         x1 = x_center - width / 2
@@ -3470,7 +3475,7 @@ class ProjectViewerApp(tk.Tk):
                         Labels.append(label)
                         isLocks.append(True)
                     except Exception as e:
-                        messagebox.showerror('Error', f"Error in processing line {i}: {str(e)}")
+                        self.showerror('Error', f"Error in processing line {i}: {str(e)}")
                         continue
 
             
@@ -3498,11 +3503,11 @@ class ProjectViewerApp(tk.Tk):
                 with open(project_txt_path, "r", encoding="utf-8") as f:
                     lines = [line.rstrip('\n') for line in f if line.strip()]
             except Exception as e:
-                messagebox.showerror("Error", f"Could not read project file:\n{e}")
+                self.showerror("Error", f"Could not read project file:\n{e}")
                 return
             
         if len(lines) < 4:
-            messagebox.showerror("Error", "Project file format is incorrect or incomplete.")
+            self.showerror("Error", "Project file format is incorrect or incomplete.")
             return
 
         project_data = {
@@ -3517,27 +3522,27 @@ class ProjectViewerApp(tk.Tk):
 
         # Parse header info
         if not lines[0].startswith("Project:"):
-            messagebox.showerror("Error", "Project name not found in project file.")
+            self.showerror("Error", "Project name not found in project file.")
             return
         project_data["name"] = lines[0][len("Project:"):].strip()
 
         if not lines[1].startswith("Project Folder:"):
-            messagebox.showerror("Error", "Project folder path not found in project file.")
+            self.showerror("Error", "Project folder path not found in project file.")
             return
         project_data["project_folder"] = lines[1][len("Project Folder:"):].strip()
         check_folder = os.path.exists(project_data["project_folder"])
         if not check_folder:
             project_data["project_folder"] = os.path.abspath(os.path.dirname(project_txt_path))
-            messagebox.showinfo("Caution", f"Project folder didn't exist.\nWe suppose the current folder and continue.\n\n{project_data['project_folder']}")
+            self.showinfo("Caution", f"Project folder didn't exist.\nWe suppose the current folder and continue.\n\n{project_data['project_folder']}")
             
         if not lines[2].startswith("Image Folder:"):
-            messagebox.showerror("Error", "Image folder path not found in project file.")
+            self.showerror("Error", "Image folder path not found in project file.")
             return
         project_data["image_folder"] = lines[2][len("Image Folder:"):].strip()
         check_folder = os.path.exists(project_data["image_folder"])
         if not check_folder:
             project_data["image_folder"] = os.path.abspath(os.path.dirname(project_txt_path)) + '\\images'
-            messagebox.showinfo("Caution", f"Image folder didn't exist.\nWe suppose the default folder \"images\" and continue.\n\n{project_data['image_folder']}")
+            self.showinfo("Caution", f"Image folder didn't exist.\nWe suppose the default folder \"images\" and continue.\n\n{project_data['image_folder']}")
 
         # Parse images list - starting at line 4 until an empty line or "Rectangles per image:"
         i = 3
@@ -3611,7 +3616,7 @@ class ProjectViewerApp(tk.Tk):
                                     isLocks.append(lock_value.lower() == 'true')
                                     recLabels.append(class_value)
                                 else:
-                                    messagebox.showerror("Error", "File not compatible, Every Rectangle needs a property line after it like Lock:= () Class:=\"\"")
+                                    self.showerror("Error", "File not compatible, Every Rectangle needs a property line after it like Lock:= () Class:=\"\"")
                                     return
                                 
                     i += 1
@@ -3628,7 +3633,7 @@ class ProjectViewerApp(tk.Tk):
         for fname in project_data["images"]:
             # تصاویر هم اسم بررسی شوند. اگر تصویر هم اسم وجود داشت از کاربر نظر خواهی شود
             if fname in self.project_data["images"]:
-                response = messagebox.askyesno(
+                response = self.askyesno(
                     title='Image file exists!',
                     message=f"File {fname} exists. Do You want to replace the BBox contents?\n\nSource Image file will not be replaced", 
                     icon='question'
@@ -3662,11 +3667,11 @@ class ProjectViewerApp(tk.Tk):
                         if not os.path.exists(dest_file):
                             shutil.copy2(image_full_path, image_destination_path)
                         else:
-                            messagebox.showinfo("Info", f"This file exsisted in destination!!\n      {fname}.")
+                            self.showinfo("Info", f"This file exsisted in destination!!\n      {fname}.")
                     except Exception as e:
-                        messagebox.showerror("Error", f"Could not copy image to destination:\n{e}\n image moved is: {fname}")
+                        self.showerror("Error", f"Could not copy image to destination:\n{e}\n image moved is: {fname}")
                 else:
-                    messagebox.showinfo("Info", f"Source and destination folders for images are the same\n      {source_abs}.")
+                    self.showinfo("Info", f"Source and destination folders for images are the same\n      {source_abs}.")
 
         # Retrieve the list of rectangles for the first image
         image_files = self.project_data["images"]
@@ -3703,10 +3708,10 @@ class ProjectViewerApp(tk.Tk):
             self.label_entry.icursor(tk.END)  # Move cursor to end of text
 
         else:
-            messagebox.showerror("Error", "No image is available in the project you selected.")
+            self.showerror("Error", "No image is available in the project you selected.")
             return
         
-        messagebox.showinfo("Success", "New Project successfully Merged to the current Project")
+        self.showinfo("Success", "New Project successfully Merged to the current Project")
 
     def Import_Label_Names_List(self):
         # دیکشنری برای نگاشت label به عدد
@@ -3722,11 +3727,11 @@ class ProjectViewerApp(tk.Tk):
                 with open(Label_List_txt_path, "r", encoding="utf-8") as f:
                     lines = [line.rstrip('\n') for line in f if line.strip()]
             except Exception as e:
-                messagebox.showerror("Error", f"Could not read Label names file:\n{e}")
+                self.showerror("Error", f"Could not read Label names file:\n{e}")
                 return
             
             if len(lines) < 2:
-                messagebox.showerror("Error", "Project file format is incorrect or incomplete.")
+                self.showerror("Error", "Project file format is incorrect or incomplete.")
                 return
 
             # Skip header lines
@@ -3746,7 +3751,7 @@ class ProjectViewerApp(tk.Tk):
                     try:
                         number = int(parts[0].strip())  # تبدیل به عدد صحیح
                     except ValueError:
-                        messagebox.showerror("Error", f"Error: invalid format in line:\n{line}")
+                        self.showerror("Error", f"Error: invalid format in line:\n{line}")
                         continue
                     
                     # پیدا کردن متن داخل ""
@@ -3759,17 +3764,17 @@ class ProjectViewerApp(tk.Tk):
                             # اگر label جدید است، یک عدد جدید اختصاص بده
                             self.label_to_number[label] = number
                         else:
-                            messagebox.showerror("Error", f"Error: invalid format in line:\n{line}")
+                            self.showerror("Error", f"Error: invalid format in line:\n{line}")
                     else:
-                        messagebox.showerror("Error", f"Error: invalid format in line:\n{line}")
+                        self.showerror("Error", f"Error: invalid format in line:\n{line}")
                 else:
-                    messagebox.showerror("Error", f"Error: invalid format in line:\n{line}")
+                    self.showerror("Error", f"Error: invalid format in line:\n{line}")
 
                 i += 1
                     
         else:
             return  # User cancelled folder selection
-        messagebox.showinfo("Success", "New label list imported successfully.")
+        self.showinfo("Success", "New label list imported successfully.")
 
 
     def Merge_Label_Names_List(self):
@@ -3786,11 +3791,11 @@ class ProjectViewerApp(tk.Tk):
                 with open(Label_List_txt_path, "r", encoding="utf-8") as f:
                     lines = [line.rstrip('\n') for line in f if line.strip()]
             except Exception as e:
-                messagebox.showerror("Error", f"Could not read Label names file:\n{e}")
+                self.showerror("Error", f"Could not read Label names file:\n{e}")
                 return
             
             if len(lines) < 2:
-                messagebox.showerror("Error", "Project file format is incorrect or incomplete.")
+                self.showerror("Error", "Project file format is incorrect or incomplete.")
                 return
 
             # Skip header lines
@@ -3810,7 +3815,7 @@ class ProjectViewerApp(tk.Tk):
                     try:
                         temp_number = int(parts[0].strip())  # تبدیل به عدد صحیح
                     except ValueError:
-                        messagebox.showerror("Error", f"Error: invalid format on line:\n{line}")
+                        self.showerror("Error", f"Error: invalid format on line:\n{line}")
                         continue
                     
                     # پیدا کردن متن داخل ""
@@ -3824,20 +3829,17 @@ class ProjectViewerApp(tk.Tk):
                             self.label_to_number[label] = current_number
                             current_number += 1
                     else:
-                        messagebox.showerror("Error", f"Error: invalid format on line:\n{line}")
+                        self.showerror("Error", f"Error: invalid format on line:\n{line}")
                 else:
-                    messagebox.showerror("Error", f"Error: invalid format on line:\n{line}")
+                    self.showerror("Error", f"Error: invalid format on line:\n{line}")
                 i += 1
                     
         else:
             return  # User cancelled folder selection
-        # for label in self.label_to_number:
-        #     print(f"{self.label_to_number[label]:02d}: \"{label:s}\"")
-
         
     def Reset_Label_Names_List(self):
         self.label_to_number = {}
-        messagebox.showinfo("Success", "Label names list is cleared successfully.")
+        self.showinfo("Success", "Label names list is cleared successfully.")
 
     def Change_Persian_Characters_to_Label_names(self):
         for fname in self.project_data["images"]:
@@ -3855,17 +3857,17 @@ class ProjectViewerApp(tk.Tk):
         self.populate_rectangle_list()  # Populate the rectangle list
         self.update_edit_panel_and_image_crop()
         self.label_entry.icursor(tk.END)  # Move cursor to end of text
-        messagebox.showinfo("Success", "Persian Characters changed to labels successfully.")
+        self.showinfo("Success", "Persian Characters changed to labels successfully.")
 
 
 
     def Load_deep_learning_model(self):
         response = False
         if self.project_data["path_to_AI"] != "":
-            response = messagebox.askyesno(
+            response = self.askyesno(
                 title = "Select AI model",
                 message = f"An AI model has already been selected. Should the new AI model replace the previous one?",
-                icon=messagebox.WARNING
+                icon='warning'
             )
             
         if response or self.project_data["path_to_AI"] == "":  # Yes (جایگزینی)
@@ -3876,20 +3878,20 @@ class ProjectViewerApp(tk.Tk):
                 )
                 if AI_file:
                     self.project_data["path_to_AI"] = AI_file
-                    messagebox.showinfo("Success", "The AI assistant model was successfully initialized")
-                    response = messagebox.askyesno(
+                    self.showinfo("Success", "The AI assistant model was successfully initialized")
+                    response = self.askyesno(
                         title = "Transfer AI model to project folder",
                         message = f"Would you like the AI assistant model file to be copied into the project folder?",
-                        icon=messagebox.WARNING
+                        icon='question'
                     )
                     if response:
                         try:
                             new_dst_path = os.path.join(self.project_data["project_folder"], os.path.basename(AI_file)).replace("\\",  "/")
                             shutil.copy2(self.project_data["path_to_AI"], new_dst_path)
                             self.project_data["path_to_AI"] = new_dst_path
-                            messagebox.showinfo("Info", f"The AI assistant model was copied to the project folder with the name\n  {os.path.basename(AI_file)}")
+                            self.showinfo("Info", f"The AI assistant model was copied to the project folder with the name\n  {os.path.basename(AI_file)}")
                         except Exception as e:
-                            messagebox.showerror("Error", f"Could not add model to project folder:\n\n{e}")
+                            self.showerror("Error", f"Could not add model to project folder:\n\n{e}")
                             
                 else:
                     return
@@ -3899,7 +3901,7 @@ class ProjectViewerApp(tk.Tk):
 
 
             except Exception as e:
-                messagebox.showerror("Error", f"Could not read AI model file:\n{e}")
+                self.showerror("Error", f"Could not read AI model file:\n{e}")
                 return
  
         else:  # No هیچ کاری نکن
@@ -3929,10 +3931,10 @@ class ProjectViewerApp(tk.Tk):
                 if len(classs) > 0:
                     if self.project_data["rectangles"][fname] != []:
                         do_message_flag = True
-                        response = messagebox.askyesno(
+                        response = self.askyesno(
                             title = "Existing annotations",
                             message = f"Should the existing object annotations be kept for this image?",
-                            icon=messagebox.WARNING
+                            icon='warning'
                         )
                         if not response:
                             self.project_data["rectangles"][fname] = []
@@ -3959,15 +3961,15 @@ class ProjectViewerApp(tk.Tk):
                     self.label_entry.focus_set()                 # Set keyboard focus to the labeling box for better UX                
                     self.label_entry.icursor(tk.END)  # Move cursor to end of text
                 else:
-                    messagebox.showinfo("Caution", "Nothing is found in this image.")
+                    self.showinfo("Caution", "Nothing is found in this image.")
                     return
                 if do_message_flag:
-                    messagebox.showinfo("Info", f"The AI model at address\n\n  {self.project_data['path_to_AI']}\nwas run on the image {fname},\nand the results were added to the list of annotated objects.")
+                    self.showinfo("Info", f"The AI model at address\n\n{self.project_data['path_to_AI']}\n\nwas run on the image  {fname},and the results were added to the list of annotated objects.")
             else:
-                messagebox.showinfo("No image", "No image is selected,\nnot successful.")
+                self.showinfo("No image", "No image is selected,\nnot successful.")
                 return  # No image is selected
         else:
-            messagebox.showinfo("No AI model", "No AI model is available,\nnot successful.")
+            self.showinfo("No AI model", "No AI model is available,\nnot successful.")
             return  # No AI model is available
 
     def Apply_deep_learning_model_to_All(self):
@@ -4001,14 +4003,14 @@ class ProjectViewerApp(tk.Tk):
                                 self.project_data["IsLocks"][fname].append(False)
                                 self.project_data["Labels"][fname].append(names[classs[i]])
 
-                    except:
+                    except Exception as e:
+                        self.title(f"Project Viewer: {self.project_data["name"]}")
+                        self.showerror(f"Error, AI assistant did not complete its job\n\n{e}")
                         continue
-                self.apply_ai.config(text=f"{idx}")  
-                self.apply_ai.update()  # به روز رسانی فوری رابط کاربری
+                self.title(f"Project Viewer: {self.project_data["name"]}\t\t\t{idx} images processed")
  
 
-            self.apply_ai.config(text="Apply AI")                    
-            self.apply_ai.update()  # به روز رسانی فوری رابط کاربری
+            self.title(f"Project Viewer: {self.project_data["name"]}")
 
             self.rect_index = 0
             self.crop_cords = list((0, 0, 1, 1))
@@ -4020,38 +4022,39 @@ class ProjectViewerApp(tk.Tk):
             self.label_entry.focus_set()                 # Set keyboard focus to the labeling box for better UX                
             self.label_entry.icursor(tk.END)  # Move cursor to end of text
         
-            messagebox.showinfo("Info", f"The AI model at address\n  {self.project_data['path_to_AI']}\nwas run on all of the images with no annotated objects,\nand the results were added to their list of annotated objects.")
+            self.showinfo("Info", f"The AI model at address\n\n{self.project_data['path_to_AI']}\n\nwas run on all of the images with no annotated objects,and the results were added to their list of annotated objects.")
 
-    def Check_Label_Conflict(self):
+    def Caculate_IoU(self, rec, new_rec):
+        # استخراج مختصات مستطیل اول
+        x1_1, y1_1, x2_1, y2_1 = rec
+        # استخراج مختصات مستطیل دوم
+        x1_2, y1_2, x2_2, y2_2 = new_rec
+        
+        # محاسبه مساحت هر مستطیل
+        area1 = (x2_1 - x1_1) * (y2_1 - y1_1)
+        area2 = (x2_2 - x1_2) * (y2_2 - y1_2)
+        
+        # محاسبه مختصات مستطیل مشترک
+        x_left = max(x1_1, x1_2)
+        y_top = max(y1_1, y1_2)
+        x_right = min(x2_1, x2_2)
+        y_bottom = min(y2_1, y2_2)
+        
+        # محاسبه مساحت مشترک
+        intersection_area = 0
+        if x_right > x_left and y_bottom > y_top:
+            intersection_area = (x_right - x_left) * (y_bottom - y_top)
+        
+        # محاسبه مساحت ترکیب
+        union_area = area1 + area2 - intersection_area
+        # محاسبه IoU (Intersection over Union)
+        IoU = intersection_area / union_area if union_area > 0 else 0
+        return IoU
+
+
+    def Look_for_more_objects_by_AI(self):
         # اگر هوش مصنوعی در صفحه حاضر یک کاراکتر با لیبل متفاوت نسبت به دیتاست تشخیص دهد آنرا به لیست اضافه خواهد کرد
         self.Change_Persian_Characters_to_Label_names
-        def Caculate_IoU(rec, new_rec):
-            # استخراج مختصات مستطیل اول
-            x1_1, y1_1, x2_1, y2_1 = rec
-            # استخراج مختصات مستطیل دوم
-            x1_2, y1_2, x2_2, y2_2 = new_rec
-            
-            # محاسبه مساحت هر مستطیل
-            area1 = (x2_1 - x1_1) * (y2_1 - y1_1)
-            area2 = (x2_2 - x1_2) * (y2_2 - y1_2)
-            
-            # محاسبه مختصات مستطیل مشترک
-            x_left = max(x1_1, x1_2)
-            y_top = max(y1_1, y1_2)
-            x_right = min(x2_1, x2_2)
-            y_bottom = min(y2_1, y2_2)
-            
-            # محاسبه مساحت مشترک
-            intersection_area = 0
-            if x_right > x_left and y_bottom > y_top:
-                intersection_area = (x_right - x_left) * (y_bottom - y_top)
-            
-            # محاسبه مساحت ترکیب
-            union_area = area1 + area2 - intersection_area
-            # محاسبه IoU (Intersection over Union)
-            IoU = intersection_area / union_area if union_area > 0 else 0
-            return IoU
-
         if self.model:
             if self.img_index != None:
                 fname = self.project_data["images"][self.img_index]
@@ -4084,32 +4087,50 @@ class ProjectViewerApp(tk.Tk):
                 # بررسی همپوشانی‌ها با پارامتر IoU
                 for idx, rec in  enumerate(self.project_data["rectangles"][fname]):
                     for idy, new_rec in enumerate(new_rectangles):
-                        IoU = Caculate_IoU(rec, new_rec)
+                        IoU = self.Caculate_IoU(rec, new_rec)
 
-                        if IoU > 0.93 and new_Labels[idy]==self.project_data["Labels"][fname][idx]:
+                        if IoU >= self.IoU_Threshold and new_Labels[idy]==self.project_data["Labels"][fname][idx]:
                             del new_rectangles[idy]
                             del new_IsLocks[idy]
                             del new_Labels[idy]
                             continue
+
+                Count_conflicts = 0
                 for idy, new_rec in enumerate(new_rectangles):
                     max_match_rec_idx = None
                     max_IoU = 0.0
                     for idx, rec in  enumerate(self.project_data["rectangles"][fname]):
-                        IoU = Caculate_IoU(rec, new_rec)
+                        IoU = self.Caculate_IoU(rec, new_rec)
                         if IoU > max_IoU:
-                            max_match_rec_idx = idx
-                            max_IoU = IoU
+                            if (IoU < self.IoU_Threshold) or (IoU >= self.IoU_Threshold and new_Labels[idy]!=self.project_data["Labels"][fname][idx]):
+                                max_match_rec_idx = idx
+                                max_IoU = IoU
                     if max_match_rec_idx != None:
-                        # self.project_data["IsLocks"][fname][max_match_rec_idx] = False
-                        if max_IoU > 0.9 and new_Labels[idy]!=self.project_data["Labels"][fname][max_match_rec_idx]:
-                            print(f"In {fname}, new rec {idy:>3d}: {new_Labels[idy]:<6s} has conflict with rec {max_match_rec_idx + 1:>3d}: {self.project_data["Labels"][fname][max_match_rec_idx]:<6s} IoU = {max_IoU:0.4f}")
-                            self.project_data["rectangles"][fname].insert(max_match_rec_idx+1, new_rec)
-                            self.project_data["IsLocks"][fname].insert(max_match_rec_idx+1, False)
-                            self.project_data["Labels"][fname].insert(max_match_rec_idx+1, new_Labels[idy])
+                        self.project_data["rectangles"][fname].insert(max_match_rec_idx+1, new_rec)
+                        self.project_data["IsLocks"][fname].insert(max_match_rec_idx+1, False)
+                        self.project_data["Labels"][fname].insert(max_match_rec_idx+1, new_Labels[idy])
+                    elif len(self.project_data["rectangles"][fname]) == 0:
+                        self.project_data["rectangles"][fname].append(new_rec)
+                        self.project_data["IsLocks"][fname].append(False)
+                        self.project_data["Labels"][fname].append(new_Labels[idy])
+                    else:
+                        min_x_place = -1
+                        min_x = 1
+                        for idx, rec in  enumerate(self.project_data["rectangles"][fname]):
+                            if (rec[0] > new_rec[0]) and (rec[0] < min_x):
+                                min_x_place = idx
+                                min_x = self.project_data["rectangles"][fname][min_x_place][0]
 
-                messagebox.showinfo("Info", f"The AI model was tested on image:\n{fname}\nTest completed")
+                        self.project_data["rectangles"][fname].insert(min_x_place+1, new_rec)
+                        self.project_data["IsLocks"][fname].insert(min_x_place+1, False)
+                        self.project_data["Labels"][fname].insert(min_x_place+1, new_Labels[idy])
+                    
+                    Count_conflicts += 1
+
+                self.showinfo("Finished", (f"The AI model found    {Count_conflicts}    more objects in image:\n"
+                                                 f"{fname}\nAny new objects are added (unLocked) to the list of annotated objects."))
             else:
-                messagebox.showinfo("No image", "No image is selected,\nnot successful.")
+                self.showerror("No image", "No image is selected,\nnot successful.")
                 return  # No image is selected
             
             self.rect_index = 0
@@ -4123,106 +4144,96 @@ class ProjectViewerApp(tk.Tk):
             self.label_entry.icursor(tk.END)  # Move cursor to end of text
 
         else:
-            messagebox.showinfo("No AI model", "No AI model is available,\nnot successful.")
+            self.showerror("No AI model", "No AI model is available,\nnot successful.")
             return  # No AI model is available
 
 
-    def Check_All_Label_Conflict(self):
+    def Look_for_more_objects_by_AI_All_images(self):
         # اگر هوش مصنوعی در هر صفحه‌ای یک کاراکتر با لیبل متفاوت نسبت به دیتاست تشخیص دهد آنرا به لیست اضافه خواهد کرد
         self.Change_Persian_Characters_to_Label_names
-        def Caculate_IoU(rec, new_rec):
-            # استخراج مختصات مستطیل اول
-            x1_1, y1_1, x2_1, y2_1 = rec
-            # استخراج مختصات مستطیل دوم
-            x1_2, y1_2, x2_2, y2_2 = new_rec
-            
-            # محاسبه مساحت هر مستطیل
-            area1 = (x2_1 - x1_1) * (y2_1 - y1_1)
-            area2 = (x2_2 - x1_2) * (y2_2 - y1_2)
-            
-            # محاسبه مختصات مستطیل مشترک
-            x_left = max(x1_1, x1_2)
-            y_top = max(y1_1, y1_2)
-            x_right = min(x2_1, x2_2)
-            y_bottom = min(y2_1, y2_2)
-            
-            # محاسبه مساحت مشترک
-            intersection_area = 0
-            if x_right > x_left and y_bottom > y_top:
-                intersection_area = (x_right - x_left) * (y_bottom - y_top)
-            
-            # محاسبه مساحت ترکیب
-            union_area = area1 + area2 - intersection_area
-            # محاسبه IoU (Intersection over Union)
-            IoU = intersection_area / union_area if union_area > 0 else 0
-            return IoU
-
         if self.model:
             Count_conflicts = 0
             for image_idx, fname  in enumerate(self.project_data["images"]):
-                image_path = os.path.join(self.project_data["image_folder"], fname).replace("\\",  "/")
+                try:
+                    image_path = os.path.join(self.project_data["image_folder"], fname).replace("\\",  "/")
 
-                results = self.model.predict(image_path, verbose=False)
-                prediction_coords = results[0].boxes.xywhn.cpu().numpy()
-                classs = results[0].boxes.cls.cpu().numpy()
-                names = results[0].names
+                    results = self.model.predict(image_path, verbose=False)
+                    prediction_coords = results[0].boxes.xywhn.cpu().numpy()
+                    classs = results[0].boxes.cls.cpu().numpy()
+                    names = results[0].names
 
-                # مرتب‌سازی بر اساس مختصات x مرکز
-                sorted_indices = np.argsort(prediction_coords[:, 0])[::-1]
-                prediction_coords = prediction_coords[sorted_indices]   
-                classs = classs[sorted_indices].astype(int)  
+                    # مرتب‌سازی بر اساس مختصات x مرکز
+                    sorted_indices = np.argsort(prediction_coords[:, 0])[::-1]
+                    prediction_coords = prediction_coords[sorted_indices]   
+                    classs = classs[sorted_indices].astype(int)  
 
-                # تولید لیست تشخیص جدید
-                new_rectangles = []
-                new_IsLocks = []
-                new_Labels = []
-                for i in range(len(sorted_indices)):
-                    x1 = prediction_coords[i][0] - prediction_coords[i][2] / 2
-                    x2 = prediction_coords[i][0] + prediction_coords[i][2] / 2
-                    y1 = prediction_coords[i][1] - prediction_coords[i][3] / 2
-                    y2 = prediction_coords[i][1] + prediction_coords[i][3] / 2
+                    # تولید لیست تشخیص جدید
+                    new_rectangles = []
+                    new_IsLocks = []
+                    new_Labels = []
+                    for i in range(len(sorted_indices)):
+                        x1 = prediction_coords[i][0] - prediction_coords[i][2] / 2
+                        x2 = prediction_coords[i][0] + prediction_coords[i][2] / 2
+                        y1 = prediction_coords[i][1] - prediction_coords[i][3] / 2
+                        y2 = prediction_coords[i][1] + prediction_coords[i][3] / 2
 
-                    new_rectangles.append((x1,y1,x2,y2))
-                    new_IsLocks.append(False)
-                    new_Labels.append(names[classs[i]])
+                        new_rectangles.append((x1,y1,x2,y2))
+                        new_IsLocks.append(False)
+                        new_Labels.append(names[classs[i]])
 
-                # بررسی همپوشانی‌ها با پارامتر IoU
-                for idx, rec in  enumerate(self.project_data["rectangles"][fname]):
-                    for idy, new_rec in enumerate(new_rectangles):
-                        IoU = Caculate_IoU(rec, new_rec)
-
-                        if IoU > 0.93 and new_Labels[idy]==self.project_data["Labels"][fname][idx]:
-                            del new_rectangles[idy]
-                            del new_IsLocks[idy]
-                            del new_Labels[idy]
-                            continue
-                for idy, new_rec in enumerate(new_rectangles):
-                    max_match_rec_idx = None
-                    max_IoU = 0.0
+                    # بررسی همپوشانی‌ها با پارامتر IoU
                     for idx, rec in  enumerate(self.project_data["rectangles"][fname]):
-                        IoU = Caculate_IoU(rec, new_rec)
-                        if IoU > max_IoU:
-                            max_match_rec_idx = idx
-                            max_IoU = IoU
-                    if max_match_rec_idx != None:
-                        # self.project_data["IsLocks"][fname][max_match_rec_idx] = False
-                        if max_IoU > 0.9 and new_Labels[idy]!=self.project_data["Labels"][fname][max_match_rec_idx]:
-                            print(f"In {fname}, new rec {idy:>3d}: {new_Labels[idy]:<6s} has conflict with rec {max_match_rec_idx + 1:>3d}: {self.project_data["Labels"][fname][max_match_rec_idx]:<6s} IoU = {max_IoU:0.4f}")
+                        for idy, new_rec in enumerate(new_rectangles):
+                            IoU = self.Caculate_IoU(rec, new_rec)
+                            if IoU >= self.IoU_Threshold and new_Labels[idy]==self.project_data["Labels"][fname][idx]:
+                                del new_rectangles[idy]
+                                del new_IsLocks[idy]
+                                del new_Labels[idy]
+                                continue
+                    for idy, new_rec in enumerate(new_rectangles):
+                        max_match_rec_idx = None
+                        max_IoU = 0.0
+                        for idx, rec in  enumerate(self.project_data["rectangles"][fname]):
+                            IoU = self.Caculate_IoU(rec, new_rec)
+                            if IoU > max_IoU:
+                                if (IoU < self.IoU_Threshold) or (IoU >= self.IoU_Threshold and new_Labels[idy]!=self.project_data["Labels"][fname][idx]):
+                                    max_match_rec_idx = idx
+                                    max_IoU = IoU
+                        if max_match_rec_idx != None:
                             self.project_data["rectangles"][fname].insert(max_match_rec_idx+1, new_rec)
                             self.project_data["IsLocks"][fname].insert(max_match_rec_idx+1, False)
                             self.project_data["Labels"][fname].insert(max_match_rec_idx+1, new_Labels[idy])
-                            Count_conflicts += 1
-            
-                self.apply_ai.config(text=f"{Count_conflicts}/{image_idx}")  
-                self.apply_ai.update()  # به روز رسانی فوری رابط کاربری
- 
-            self.apply_ai.config(text="Apply AI")                    
-            self.apply_ai.update()  # به روز رسانی فوری رابط کاربری
+                        elif len(self.project_data["rectangles"][fname]) == 0:
+                            self.project_data["rectangles"][fname].append(new_rec)
+                            self.project_data["IsLocks"][fname].append(False)
+                            self.project_data["Labels"][fname].append(new_Labels[idy])
+                        else:
+                            min_x_place = -1
+                            min_x = 1
+                            for idx, rec in  enumerate(self.project_data["rectangles"][fname]):
+                                if (rec[0] > new_rec[0]) and (rec[0] < min_x):
+                                    min_x_place = idx
+                                    min_x = self.project_data["rectangles"][fname][min_x_place][0]
 
-            messagebox.showinfo("Info", f"In total, {Count_conflicts} conflicts were detected. New items were added (not Locked) to the list of annotation objects.")
+                            self.project_data["rectangles"][fname].insert(min_x_place+1, new_rec)
+                            self.project_data["IsLocks"][fname].insert(min_x_place+1, False)
+                            self.project_data["Labels"][fname].insert(min_x_place+1, new_Labels[idy])
+                        
+                        Count_conflicts += 1
+                
+                    self.title(f"Project Viewer: {self.project_data["name"]}\t\t\t{Count_conflicts} New objects in {image_idx} images")
+
+                except Exception as e:
+                    self.title(f"Project Viewer: {self.project_data["name"]}")
+                    self.showerror(f"Error, AI assistant did not complete its job\n\n{e}")
+                    continue
+
+            self.title(f"Project Viewer: {self.project_data["name"]}")
+
+            self.showinfo("Finished", f"In total,    {Count_conflicts}    new objects were detected by AI assistant. New items were added (unLocked) to the list of annotated objects.")
 
         else:
-            messagebox.showinfo("No AI model", "No AI model is available,\nnot successful.")
+            self.showerror("No AI model", "No AI model is available,\nnot successful.")
             return  # No AI model is available
 
         if (self.rect_index != None) and (self.img_index != None):
@@ -4235,9 +4246,364 @@ class ProjectViewerApp(tk.Tk):
             self.label_entry.focus_set()                 # Set keyboard focus to the labeling box for better UX                
             self.label_entry.icursor(tk.END)  # Move cursor to end of text
 
+
+    def askyesno(self, title, message, icon='question'):
+        """
+        icon می‌تواند یکی از موارد زیر باشد:
+        - 'info'    : آیکون اطلاعات
+        - 'warning' : آیکون هشدار
+        - 'error'   : آیکون خطا
+        - 'question': آیکون سوال (پیش‌فرض)
+        """
+        
+        # self.state('zoomed')       
+        # ایجاد پنجره جدید
+        dialog = tk.Toplevel(self)
+        dialog.title(title)
+        height = max(130, min(300, 100 + (25 * ((len(message) * 10 + 290) // 290))))
+        dialog.geometry(f"400x{height}")
+        dialog.resizable(False, False)
+
+
+        # ========== ۱. قرار دادن دیالوگ وسط پنجره اصلی ==========
+        dialog.update_idletasks()
+        x = self.winfo_x() + (self.winfo_width() // 2) - (350 // 2)
+        y = self.winfo_y() + (self.winfo_height() // 2) - (160 // 2)
+        dialog.geometry(f"+{x}+{y}")
+        
+        # ========== ۳. غیرفعال کردن پنجره اصلی ==========
+        dialog.transient(self)
+        self.attributes('-disabled', True)
+        dialog.focus_force()
+        dialog.configure(bg='#f0f0f0')        
+
+        # متغیر برای نگهداری نتیجه
+        result = False
+        
+        # فریم اصلی با padding
+        main_frame = ttk.Frame(dialog, padding=15)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # ========== بخش آیکون ==========
+        icon_frame = ttk.Frame(main_frame, width=60, height=60)
+        icon_frame.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 15))
+        icon_frame.pack_propagate(False)
+        
+        # انتخاب آیکون و رنگ مناسب
+        icon_data = {
+            'info': {'text': 'i', 'color': "#2148F3", 'bg': '#E3F2FD'},
+            'warning': {'text': '!', 'color': '#FF9800', 'bg': '#FFF3E0'},
+            'error': {'text': '✕', 'color': '#F44336', 'bg': '#FFEBEE'},
+            'question': {'text': '?', 'color': "#4DC951", 'bg': '#E8F5E9'}
+        }
+
+        data = icon_data.get(icon, icon_data['question'])
+
+        # نمایش آیکون با رنگ
+        icon_label = tk.Label(
+            icon_frame,
+            text=data['text'],
+            font=('Segoe UI', 32, 'bold'),
+            fg=data['color'],  # ← رنگ متن
+            bg=data['bg'],     # ← رنگ پس‌زمینه (اختیاری)
+            width=2,
+            height=1
+        )
+        icon_label.pack(expand=True)
+
+        # ========== بخش پیام ==========
+        message_frame = ttk.Frame(main_frame)
+        message_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)  # ← TOP و expand=True
+
+        # پیام
+        label = tk.Label(
+            message_frame, 
+            text=message, 
+            bg = '#FFFFFF', 
+            font=('Segoe UI', 10),
+            justify='left',
+            wraplength=290
+        )
+        label.pack(fill=tk.BOTH, expand=True, pady=(0, 15))
+
+        # ========== بخش دکمه‌ها ==========
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack(side=tk.BOTTOM, fill=tk.X)  # ← fill=tk.X برای پر کردن عرض
+               
+        def on_yes():
+            nonlocal result
+            result = True
+            dialog.destroy()
+        
+        def on_no():
+            nonlocal result
+            result = False
+            dialog.destroy()
+
+        # تابع خالی برای غیرفعال کردن X
+        def do_nothing(yes_btn, no_btn):
+            no_btn.focus_set()
+            dialog.after(200, lambda: yes_btn.focus_set())
+            dialog.after(400, lambda: no_btn.focus_set())
+            dialog.after(600, lambda: yes_btn.focus_set())
+            pass  # هیچ کاری نکن        
+        
+        yes_btn = ttk.Button(button_frame, text="Yes", command=on_yes, width=10)
+        yes_btn.pack(side=tk.LEFT, padx=5)
+        
+        no_btn = ttk.Button(button_frame, text="No", command=on_no, width=10)
+        no_btn.pack(side=tk.RIGHT, padx=5)
+
+        # فوکوس پیش‌فرض روی دکمه Yes
+        yes_btn.focus_set()
+
+        # بستن با دکمه X غیر فعال است
+        dialog.protocol("WM_DELETE_WINDOW", lambda: do_nothing(yes_btn, no_btn))  # هیچ کاری نکن        
+
+        # 2. غیرفعال کردن کلید Escape
+        dialog.bind('<Escape>', do_nothing)  # یا 'break' برای جلوگیری از رویداد
+       
+        # منتظر ماندن برای بسته شدن پنجره
+        dialog.wait_window()
+        self.attributes('-disabled', False)
+        self.focus_force()
+
+        return result
+    
+    
+    def askyesnocancel(self, title, message, icon='question'):
+        """
+        icon می‌تواند یکی از موارد زیر باشد:
+        - 'info'    : آیکون اطلاعات
+        - 'warning' : آیکون هشدار
+        - 'error'   : آیکون خطا
+        - 'question': آیکون سوال (پیش‌فرض)
+        """
+        
+        # self.state('zoomed')       
+        # ایجاد پنجره جدید
+        dialog = tk.Toplevel(self)
+        dialog.title(title)
+        height = max(130, min(300, 100 + (25 * ((len(message) * 10 + 290) // 290))))
+        dialog.geometry(f"400x{height}")
+        dialog.resizable(False, False)
+
+
+        # ========== ۱. قرار دادن دیالوگ وسط پنجره اصلی ==========
+        dialog.update_idletasks()
+        x = self.winfo_x() + (self.winfo_width() // 2) - (350 // 2)
+        y = self.winfo_y() + (self.winfo_height() // 2) - (160 // 2)
+        dialog.geometry(f"+{x}+{y}")
+        
+        # ========== ۳. غیرفعال کردن پنجره اصلی ==========
+        dialog.transient(self)
+        self.attributes('-disabled', True)
+        dialog.focus_force()
+        dialog.configure(bg='#f0f0f0')        
+
+        # متغیر برای نگهداری نتیجه
+        result = None
+        
+        # فریم اصلی با padding
+        main_frame = ttk.Frame(dialog, padding=15)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # ========== بخش آیکون ==========
+        icon_frame = ttk.Frame(main_frame, width=60, height=60)
+        icon_frame.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 15))
+        icon_frame.pack_propagate(False)
+        
+        # انتخاب آیکون و رنگ مناسب
+        icon_data = {
+            'info': {'text': 'i', 'color': "#2148F3", 'bg': '#E3F2FD'},
+            'warning': {'text': '!', 'color': '#FF9800', 'bg': '#FFF3E0'},
+            'error': {'text': '✕', 'color': '#F44336', 'bg': '#FFEBEE'},
+            'question': {'text': '?', 'color': "#4DC951", 'bg': '#E8F5E9'}
+        }
+
+        data = icon_data.get(icon, icon_data['question'])
+
+        # نمایش آیکون با رنگ
+        icon_label = tk.Label(
+            icon_frame,
+            text=data['text'],
+            font=('Segoe UI', 32, 'bold'),
+            fg=data['color'],  # ← رنگ متن
+            bg=data['bg'],     # ← رنگ پس‌زمینه (اختیاری)
+            width=2,
+            height=1
+        )
+        icon_label.pack(expand=True)
+
+        # ========== بخش پیام ==========
+        message_frame = ttk.Frame(main_frame)
+        message_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)  # ← TOP و expand=True
+
+        # پیام
+        label = tk.Label(
+            message_frame, 
+            text=message, 
+            bg = '#FFFFFF', 
+            font=('Segoe UI', 10),
+            justify='left',
+            wraplength=290
+        )
+        label.pack(fill=tk.BOTH, expand=True, pady=(0, 15))
+
+        # ========== بخش دکمه‌ها ==========
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack(side=tk.BOTTOM, fill=tk.X)  # ← fill=tk.X برای پر کردن عرض
+               
+        def on_yes():
+            nonlocal result
+            result = True
+            dialog.destroy()
+        
+        def on_no():
+            nonlocal result
+            result = False
+            dialog.destroy()
+
+        # تابع خالی برای غیرفعال کردن X
+        def do_cancel():
+            nonlocal result
+            result = None
+            dialog.destroy()
+        
+        yes_btn = ttk.Button(button_frame, text="Yes", command=on_yes, width=10)
+        yes_btn.pack(side=tk.LEFT, padx=5)
+        
+        no_btn = ttk.Button(button_frame, text="No", command=on_no, width=10)
+        no_btn.pack(side=tk.LEFT, padx=5, expand=True)
+
+        cahcel_btn = ttk.Button(button_frame, text="Cancel", command=do_cancel, width=10)
+        cahcel_btn.pack(side=tk.RIGHT, padx=5)
+
+        # فوکوس پیش‌فرض روی دکمه Yes
+        yes_btn.focus_set()
+
+        # بستن با دکمه X غیر فعال است
+        dialog.protocol("WM_DELETE_WINDOW", do_cancel)  # هیچ کاری نکن        
+
+        # 2. غیرفعال کردن کلید Escape
+        dialog.bind('<Escape>', do_cancel)  # یا 'break' برای جلوگیری از رویداد
+       
+        # منتظر ماندن برای بسته شدن پنجره
+        dialog.wait_window()
+        self.attributes('-disabled', False)
+        self.focus_force()
+
+        return result
+    
+    def showinfo(self, title, message, icon='info'):
+        """
+        icon می‌تواند یکی از موارد زیر باشد:
+        - 'info'    : آیکون اطلاعات
+        - 'warning' : آیکون هشدار
+        - 'error'   : آیکون خطا
+        - 'question': آیکون سوال (پیش‌فرض)
+        """
+        
+        # self.state('zoomed')       
+        # ایجاد پنجره جدید
+        dialog = tk.Toplevel(self)
+        dialog.title(title)
+        height = max(130, min(300, 100 + (25 * ((len(message) * 10 + 290) // 290))))
+        dialog.geometry(f"400x{height}")
+        dialog.resizable(False, False)
+
+
+        # ========== ۱. قرار دادن دیالوگ وسط پنجره اصلی ==========
+        dialog.update_idletasks()
+        x = self.winfo_x() + (self.winfo_width() // 2) - (350 // 2)
+        y = self.winfo_y() + (self.winfo_height() // 2) - (160 // 2)
+        dialog.geometry(f"+{x}+{y}")
+        
+        # ========== ۳. غیرفعال کردن پنجره اصلی ==========
+        dialog.transient(self)
+        self.attributes('-disabled', True)
+        dialog.focus_force()
+        dialog.configure(bg='#f0f0f0')        
+       
+        # فریم اصلی با padding
+        main_frame = ttk.Frame(dialog, padding=15)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # ========== بخش آیکون ==========
+        icon_frame = ttk.Frame(main_frame, width=60, height=60)
+        icon_frame.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 15))
+        icon_frame.pack_propagate(False)
+        
+        # انتخاب آیکون و رنگ مناسب
+        icon_data = {
+            'info': {'text': 'i', 'color': "#2148F3", 'bg': '#E3F2FD'},
+            'warning': {'text': '!', 'color': '#FF9800', 'bg': '#FFF3E0'},
+            'error': {'text': '✕', 'color': '#F44336', 'bg': '#FFEBEE'},
+            'question': {'text': '?', 'color': "#4DC951", 'bg': '#E8F5E9'}
+        }
+
+        data = icon_data.get(icon, icon_data['question'])
+
+        # نمایش آیکون با رنگ
+        icon_label = tk.Label(
+            icon_frame,
+            text=data['text'],
+            font=('Segoe UI', 32, 'bold'),
+            fg=data['color'],  # ← رنگ متن
+            bg=data['bg'],     # ← رنگ پس‌زمینه (اختیاری)
+            width=2,
+            height=1
+        )
+        icon_label.pack(expand=True)
+
+        # ========== بخش پیام ==========
+        message_frame = ttk.Frame(main_frame)
+        message_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)  # ← TOP و expand=True
+
+        # پیام
+        label = tk.Label(
+            message_frame, 
+            text=message, 
+            bg = '#FFFFFF', 
+            font=('Segoe UI', 10),
+            justify='left',
+            wraplength=290
+        )
+        label.pack(fill=tk.BOTH, expand=True, pady=(0, 15))
+
+        # ========== بخش دکمه‌ها ==========
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack(side=tk.BOTTOM, fill=tk.X)  # ← fill=tk.X برای پر کردن عرض
+                      
+        OK_btn = ttk.Button(button_frame, text="OK", command=dialog.destroy, width=10)
+        OK_btn.pack(side=tk.RIGHT, pady=5)
+        
+        # فوکوس پیش‌فرض روی دکمه Yes
+        OK_btn.focus_set()
+
+        # کلید Enter برای Yes
+        dialog.bind('<Return>', dialog.destroy)
+
+        # 2. غیرفعال کردن کلید Escape
+        dialog.bind('<Escape>', dialog.destroy)  # یا 'break' برای جلوگیری از رویداد
+
+        dialog.protocol("WM_DELETE_WINDOW", dialog.destroy)
+
+        # منتظر ماندن برای بسته شدن پنجره
+        dialog.wait_window()
+        self.attributes('-disabled', False)
+        self.focus_force()
+
+        return 
+    
+    def showwarning(self, title, message, icon='warning'):
+        self.showinfo(title, message, icon)
+
+    def showerror(self, title, message, icon='error'):
+        self.showinfo(title, message, icon)
+
 def main():
     app = ProjectViewerApp()
-    app.state('zoomed')
     app.mainloop()
 
 if __name__ == "__main__":
