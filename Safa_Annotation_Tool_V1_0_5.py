@@ -16,7 +16,9 @@ class ProjectViewerApp(tk.Tk):
         self.title("Project Viewer")
         self.geometry("1200x700")
         self.configure(bg="#ffffff")
-        self.minsize(1000, 600)
+        self.minsize(850, 450)
+        self.IoU_Threshold = 0.8 #overlap threshold that means two BBoxes are the same
+        self.Show_tips_on = True
 
         self._setup_styles()
         self._setup_menu()
@@ -43,7 +45,6 @@ class ProjectViewerApp(tk.Tk):
         self.label_to_number = {}
         self.last_zoom_time = 0
         self.char_sequense = ""
-        self.IoU_Threshold = 0.8 #overlap threshold that means two BBoxes are the same
 
         self.project_data = {
             "name": "",               # Project name (str)
@@ -132,17 +133,23 @@ class ProjectViewerApp(tk.Tk):
         AI_menu.add_separator()  # اضافه کردن خط جداکننده
         AI_menu.add_command(label="Apply deep learning model to All images with no BBox", command=self.Apply_deep_learning_model_to_All)
         AI_menu.add_separator()  # اضافه کردن خط جداکننده
+        AI_menu.add_command(label="Change IoU threshold for conflicting BBoxes", command=self.Change_IoU_threshold)
         AI_menu.add_command(label="Look for more objects by AI in the current image", command=self.Look_for_more_objects_by_AI)
         AI_menu.add_command(label="Look for more objects by AI in All images", command=self.Look_for_more_objects_by_AI_All_images)
+        Help_menu = tk.Menu(menu_bar, tearoff=0)
+        Help_menu.add_command(label="Show Tips", command=lambda: setattr(self, 'Show_tips_on', True))
+        Help_menu.add_command(label="Hide Tips", command=lambda: setattr(self, 'Show_tips_on', False))
         menu_bar.add_cascade(label="File", menu=file_menu)
         menu_bar.add_cascade(label="Edit", menu=Edit_menu)
         menu_bar.add_cascade(label="Export", menu=Export_menu)
         menu_bar.add_cascade(label="Import", menu=Import_menu)
         menu_bar.add_cascade(label="Labels", menu=Labels_menu)
         menu_bar.add_cascade(label="AI Assist", menu=AI_menu)
+        menu_bar.add_cascade(label="Help", menu=Help_menu)
         self.config(menu=menu_bar)
 
     def open_project(self):
+        self.Show_tips_on = False
         project_txt_path = filedialog.askopenfilename(
             title="Select Project File",
             filetypes=[("Project Text Files", "*.txt"), ("All Files", "*.*")]
@@ -151,6 +158,7 @@ class ProjectViewerApp(tk.Tk):
             self.load_project_from_file(project_txt_path)
 
     def load_project_from_file(self, project_txt_path):
+        self.Show_tips_on = False
         # Clear Project Data
         self.clear_project_general_data()
         # Open project file
@@ -396,6 +404,7 @@ class ProjectViewerApp(tk.Tk):
                 self.project_data["path_to_AI"] = ""
 
     def new_project(self):
+        self.Show_tips_on = False
         # Clear Project Data
 
         while True:
@@ -546,6 +555,7 @@ class ProjectViewerApp(tk.Tk):
             self.showerror("Error", f"Could not initialize a new project properly:\n{e}")
 
     def Add_New_Image_to_Project(self):
+        self.Show_tips_on = False
         files_added = 0
         new_image_files = filedialog.askopenfilenames(
             title="Select New Image Files",
@@ -1021,8 +1031,6 @@ class ProjectViewerApp(tk.Tk):
         self.canvas.delete("all")
         self.char_sequense = ""
 
-
-
     def _setup_widgets(self):
         main_frame = ttk.Frame(self, padding=10, style='TFrame', width=500, height=500)
         main_frame.pack(fill=tk.BOTH, expand=True)
@@ -1046,8 +1054,10 @@ class ProjectViewerApp(tk.Tk):
 
         Backup = ttk.Button(btn_frame, text="Backup", command=self.Auto_save_project, width=8)
         Backup.pack(side=tk.RIGHT, padx=2)
+        ToolTip(Backup, "Save an automatic backup file for the project in its folder. Images will not be copied.\n\nThis function is done every time another image is loaded", self) 
         save = ttk.Button(btn_frame, text="Save As", command=self.save_project, width=8)
         save.pack(side=tk.RIGHT, padx=2)
+        ToolTip(save, "Save As the project. Images will be copied to the destination.", self) 
 
         # Entry for Search text (اضافه شده)
         self.char_sequense2 = tk.StringVar()
@@ -1061,9 +1071,11 @@ class ProjectViewerApp(tk.Tk):
             font=('Tahoma', 10)
         )
         self.Search_entry.pack(side=tk.RIGHT, padx=2)
+        ToolTip(self.Search_entry, "Search for a sequence of Persian characters (objects having character assigned).\n\nNot all characters are allowed. You can persinalize the code for your language", self) 
 
         Search = ttk.Button(btn_frame, text="🔎", command=self.Find_Persian_character_sequense2, width=3)
         Search.pack(side=tk.RIGHT, padx=(20,2))        
+        ToolTip(Search, "Search for a sequence of Persian characters (objects having character assigned).\n\nNot all characters are allowed. You can persinalize the code for your language", self) 
         # یک فضای خالی با expand=True برای پر کردن فاصله
         spacer = ttk.Frame(btn_frame)
         spacer.pack(side=tk.RIGHT, expand=True)
@@ -1077,12 +1089,18 @@ class ProjectViewerApp(tk.Tk):
         down_button.pack(side=tk.RIGHT, padx=1)
         up_button = ttk.Button(btn_frame, text="↑", command=self.move_up, width=2)
         up_button.pack(side=tk.RIGHT, padx=1)
+        ToolTip(right_button, "Move in Zoomed image", self) 
+        ToolTip(left_button, "Move in Zoomed image", self) 
+        ToolTip(down_button, "Move in Zoomed image", self) 
+        ToolTip(up_button, "Move in Zoomed image", self) 
 
         # Zoom Buttons
-        button3 = ttk.Button(btn_frame, text="←↕→", command=self.Zoom_in, width=4)
-        button3.pack(side=tk.RIGHT, padx=2)
-        button4 = ttk.Button(btn_frame, text="→←", command=self.Zoom_out, width=4)
-        button4.pack(side=tk.RIGHT, padx=2)
+        zoonin = ttk.Button(btn_frame, text="←↕→", command=self.Zoom_in, width=4)
+        zoonin.pack(side=tk.RIGHT, padx=2)
+        ToolTip(zoonin, "Zoom in the image", self) 
+        zoomout = ttk.Button(btn_frame, text="→←", command=self.Zoom_out, width=4)
+        zoomout.pack(side=tk.RIGHT, padx=2)
+        ToolTip(zoomout, "Zoom out the image", self) 
 
 
         # Canvas for image & rectangles - below buttons
@@ -1103,6 +1121,7 @@ class ProjectViewerApp(tk.Tk):
         self.canvas.bind("<Button-3>", self.start_drag)  # کلیک راست
         self.canvas.bind("<B3-Motion>", self.on_drag)    # درگ با کلیک راست
         self.canvas.bind("<ButtonRelease-3>", self.end_drag)  # رها کردن کلیک راست
+        ToolTip(self.left_frame, "Current image is shown here.\n\n(Click-Drag-Release) to draw a bounding box around the object.\n\nScroll up and down to zoom in and out.\n\nHold .:Right Click:. and drag to move in the zoomed image", self) 
 
 
         # ######## Right Panel Configuration ##################
@@ -1134,7 +1153,7 @@ class ProjectViewerApp(tk.Tk):
         list1_container = ttk.Frame(frame1, style='Listbox.TFrame')  # ← اسم بدون تغییر
         list1_container.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
-        self.lb1 = tk.Listbox(list1_container, relief=tk.FLAT, borderwidth=0, font=('Segoe UI', 10), width=5,
+        self.lb1 = tk.Listbox(list1_container, relief=tk.FLAT, borderwidth=0, font=('Segoe UI', 10), width=5, height=2,
                               activestyle='none', selectbackground='#2563eb', selectforeground='white',
                               exportselection=False)
         self.lb1.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -1151,19 +1170,20 @@ class ProjectViewerApp(tk.Tk):
         self.lb1.bind("<<ListboxSelect>>", self.on_file_select)
         # اتصال رویداد رها کردن دکمه موس به تابع
         self.lb1.bind('<ButtonRelease-1>', self.on_listbox_release)
+        ToolTip(self.lb1, "List of images in the current project.", self) 
 
         # ایجاد یک فریم برای دکمه‌ها در پایین
         button_frame = ttk.Frame(frame1, width=24)
         button_frame.pack(side=tk.BOTTOM, pady=0)
 
         # دکمه‌ها در button_frame
-        delete_image = ttk.Button(button_frame, text="Delete Image", padding=1, 
-                                command=self.delete_image_from_project, width=12)
+        delete_image = ttk.Button(button_frame, text="Delete Image", padding=1, command=self.delete_image_from_project, width=12)
         delete_image.pack(side=tk.LEFT, padx=2)
+        ToolTip(delete_image, "Deletes the current image from the project. You can add it later from the folder of images.", self) 
 
-        self.apply_ai = ttk.Button(button_frame, text="Apply AI", padding=1, 
-                                command=self.Apply_deep_learning_model, width=8)
+        self.apply_ai = ttk.Button(button_frame, text="Apply AI", padding=1, command=self.Apply_deep_learning_model, width=8)
         self.apply_ai.pack(side=tk.RIGHT, padx=2)
+        ToolTip(self.apply_ai, "AI assitant (YOLO by the time) helps you to find objects in the current image.", self) 
 
 
         # ---------- بخش راست (Bounding Boxes) ----------
@@ -1180,7 +1200,7 @@ class ProjectViewerApp(tk.Tk):
         list2_container = ttk.Frame(frame2, style='Listbox.TFrame')
         list2_container.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
-        self.lb2 = tk.Listbox(list2_container, relief=tk.FLAT, borderwidth=0, font=('Segoe UI', 10), width=5,
+        self.lb2 = tk.Listbox(list2_container, relief=tk.FLAT, borderwidth=1, font=('Segoe UI', 10), width=5, height=2,
                               activestyle='none', selectbackground='#2563eb', selectforeground='white',
                               exportselection=False)
         self.lb2.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -1197,16 +1217,17 @@ class ProjectViewerApp(tk.Tk):
         self.lb2.bind("<Button-3>", self.on_rectangle_right_click)  # Bind right-click event
         # اتصال رویداد رها کردن دکمه موس به تابع
         self.lb2.bind('<ButtonRelease-1>', self.on_listbox_release)
+        ToolTip(self.lb2, "List of detected objects in the current image.\n\nPress Down and Up keys to move to the next or previous item. Or click on the item.", self) 
 
-        MoveUp_button = ttk.Button(frame2, text="↑", padding=1, width=5, command=self.move_rectangle_up)
-        MoveUp_button.pack(side=tk.LEFT, padx=(5, 0))
+        self.MoveUp_button = ttk.Button(frame2, text="↑", padding=1, width=5, command=self.move_rectangle_up)
+        self.MoveUp_button.pack(side=tk.LEFT, padx=(5, 0))
+        ToolTip(self.MoveUp_button, "Moves up the object in the list. Diactivated for Locked objects.\n\nBut You can hold .:Ctrl:. and click .:Up:. to move up Locked objects.", self) 
         Auto_sort = ttk.Button(frame2, text="⇊ Sort ⇇", padding=1, width=10, command=self.Auto_sort_rectangles)
         Auto_sort.pack(side=tk.LEFT, expand=True, padx=0)
-        Auto_sort = ttk.Button(frame2, text="Delete Box", padding=1, width=12, command=self.on_delete_box)
-        Auto_sort.pack(side=tk.LEFT, expand=True, padx=0)
-        MoveDown_button = ttk.Button(frame2, text="↓", padding=1, width=5, command=self.move_rectangle_down)
-        MoveDown_button.pack(side=tk.RIGHT, padx=(0, 5))
-
+        ToolTip(Auto_sort, "Sorts objects (Locked and unLocked) vertically or horizontally. Later, AI assistant will help for sorting.", self) 
+        self.MoveDown_button = ttk.Button(frame2, text="↓", padding=1, width=5, command=self.move_rectangle_down)
+        self.MoveDown_button.pack(side=tk.RIGHT, padx=(0, 5))
+        ToolTip(self.MoveDown_button, "Moves down the object in the list. Diactivated for Locked objects.\n\nBut You can hold .:Ctrl:. and click .:Down:. to move down Locked objects.", self) 
 
         # ---------- بخش پایینی (preview و دکمه‌های ویرایش) ----------
         bottom_right_pane = ttk.Frame(self.right_paned, style='TFrame')
@@ -1232,6 +1253,7 @@ class ProjectViewerApp(tk.Tk):
         self.crop_canvas = tk.Canvas(self.canvas_frame, width=100, height=100, bg="#dddddd", highlightthickness=0)
         self.crop_canvas.pack(expand=True, fill=tk.BOTH, padx=(5, 5), pady=(5, 5))
         self.crop_canvas.grid_propagate(False)
+        ToolTip(self.crop_canvas, "Detected object is magnified and isolated here for tunning BBox coordinates", self) 
 
         # Right Frame: Arrow Buttons
         self.edit_frame = tk.Frame(self.frame3, height=350, bg="#f0f0f0")
@@ -1242,17 +1264,26 @@ class ProjectViewerApp(tk.Tk):
         self.top_frame = tk.Frame(self.edit_frame, bg="#f0f0f0")
         self.top_frame.pack(pady=2)
 
+        #         # ایجاد متن توضیحی زیر دکمه
+        # self.bottom_button_label = tk.Label(
+        #     self.top_frame, 
+        #     text="Click or hold Control\nand Scroll on Buttons",
+        #     font=("Tahoma", 8),
+        #     fg="gray"
+        # )
+        # self.bottom_button_label.pack(side=tk.TOP, pady=(2, 0))
+
         # در این قسمت دکمه‌های تنظیم دقیق‌تر کادر دور شیء ایجاد می‌شوند. این دکمه‌ها قابلیت اسکرول هم دارند
         button_width = 6
         # Top Frame
-        self.left_top_button = ttk.Button(self.top_frame, text="↑", padding=0, width=button_width+3, command=self.move_top_up)
+        self.left_top_button = ttk.Button(self.top_frame, text="↑", padding=0, width=button_width+7, command=self.move_top_up)
         self.left_top_button.pack(side=tk.TOP, padx=1)
         self.left_top_button.bind("<MouseWheel>", self.on_top_scroll)
         self.left_top_button.bind("<Button-4>", self.on_top_scroll_up)  # برای لینوکس/مک
         self.left_top_button.bind("<Button-5>", self.on_top_scroll_down)  # برای لینوکس/مک
 
 
-        self.right_top_button = ttk.Button(self.top_frame, text="Top\n  ↓ ", padding=0, width=button_width+3, command=self.move_top_down)
+        self.right_top_button = ttk.Button(self.top_frame, text=" ↓ Top ↓ ", padding=0, width=button_width+7, command=self.move_top_down)
         self.right_top_button.pack(side=tk.TOP, padx=1)
         self.right_top_button.bind("<MouseWheel>", self.on_top_scroll)
         self.right_top_button.bind("<Button-4>", self.on_top_scroll_up)  # برای لینوکس/مک
@@ -1291,30 +1322,30 @@ class ProjectViewerApp(tk.Tk):
         self.bottom_frame = tk.Frame(self.edit_frame, bg="#f0f0f0")
         self.bottom_frame.pack(side=tk.TOP, pady=2)
 
-        self.left_bottom_button = ttk.Button(self.bottom_frame,padding=0,  text="     ↑\nBottom", width=button_width+3, command=self.move_bottom_up)
+        self.left_bottom_button = ttk.Button(self.bottom_frame,padding=0,  text=" ↑ Bottom ↑ ", width=button_width+7, command=self.move_bottom_up)
         self.left_bottom_button.pack(side=tk.TOP, padx=1)
         self.left_bottom_button.bind("<MouseWheel>", self.on_But_scroll)
         self.left_bottom_button.bind("<Button-4>", self.on_But_scroll_up)  # برای لینوکس/مک
         self.left_bottom_button.bind("<Button-5>", self.on_But_scroll_down)  # برای لینوکس/مک
 
-        self.right_bottom_button = ttk.Button(self.bottom_frame, text="↓",padding=0, width=button_width+3, command=self.move_bottom_down)
+        self.right_bottom_button = ttk.Button(self.bottom_frame, text="↓",padding=0, width=button_width+7, command=self.move_bottom_down)
         self.right_bottom_button.pack(side=tk.TOP,  padx=1)
         self.right_bottom_button.bind("<MouseWheel>", self.on_But_scroll)
         self.right_bottom_button.bind("<Button-4>", self.on_But_scroll_up)  # برای لینوکس/مک
         self.right_bottom_button.bind("<Button-5>", self.on_But_scroll_down)  # برای لینوکس/مک
 
-        # ایجاد متن توضیحی زیر دکمه
-        self.bottom_button_label = tk.Label(
-            self.bottom_frame, 
-            text="Click or hold Control\nand Scroll on Buttons",
-            font=("Tahoma", 8),
-            fg="gray"
-        )
-        self.bottom_button_label.pack(side=tk.TOP, pady=(2, 0))
+        ToolTip(self.left_top_button, "Click on the buttons or hold .:Ctrl:. and scroll on them to resize the BBox", self) 
+        ToolTip(self.right_top_button, "Click on the buttons or hold .:Ctrl:. and scroll on them to resize the BBox", self) 
+        ToolTip(self.up_left_button, "Click on the buttons or hold .:Ctrl:. and scroll on them to resize the BBox", self) 
+        ToolTip(self.down_left_button, "Click on the buttons or hold .:Ctrl:. and scroll on them to resize the BBox", self) 
+        ToolTip(self.up_right_button, "Click on the buttons or hold .:Ctrl:. and scroll on them to resize the BBox", self) 
+        ToolTip(self.down_right_button, "Click on the buttons or hold .:Ctrl:. and scroll on them to resize the BBox", self) 
+        ToolTip(self.left_bottom_button, "Click on the buttons or hold .:Ctrl:. and scroll on them to resize the BBox", self) 
+        ToolTip(self.right_bottom_button, "Click on the buttons or hold .:Ctrl:. and scroll on them to resize the BBox", self) 
 
         # Lableling Frame
         self.Lableling_frame = tk.Frame(self.edit_frame, bg="#f0f0f0")
-        self.Lableling_frame.pack(side=tk.TOP,  pady=2)
+        self.Lableling_frame.pack(side=tk.TOP,  pady=4)
 
         # Entry for label text (اضافه شده)
         self.label_var = tk.StringVar()
@@ -1333,25 +1364,34 @@ class ProjectViewerApp(tk.Tk):
         self.label_entry.bind("<Up>", self.on_key_down)
         self.label_entry.bind("<Control-Up>", self.on_key_down)
         self.label_entry.bind("<Return>", self.on_key_down)
+        ToolTip(self.label_entry, "Enter Label of the object. You can type one character and change it later to the full name of Label.", self) 
         
 
         self.UnLock_button = ttk.Button(self.Lableling_frame, text="UnLock",padding=0, width=button_width+2, command=self.UnLock)
         self.UnLock_button.pack(side=tk.LEFT,  padx=2)
+        ToolTip(self.UnLock_button, "unLocks BBox, now you can edit and move.", self) 
 
         self.Lockframe = tk.Frame(self.edit_frame, bg="#f0f0f0")
         self.Lockframe.pack(side=tk.TOP,  pady=2)
 
         self.Lockandgo_button = ttk.Button(self.Lockframe, text="Lock and go",padding=0, width=button_width+6, command=self.Lock_and_go_next)
         self.Lockandgo_button.pack(side=tk.LEFT,  padx=2)
+        ToolTip(self.Lockandgo_button, "Locks BBox and goes to the next unLocked BBox. Pressing .:Enter:. does the same.", self) 
 
         self.Lock_button = ttk.Button(self.Lockframe, text="Lock", padding=0, width=button_width, command=self.Lock_Rectangle)
         self.Lock_button.pack(side=tk.LEFT, padx=2)
+        ToolTip(self.Lock_button, "Locks BBox, edit and movement is diactivated", self) 
 
         self.delet_frame = tk.Frame(self.edit_frame, bg="#f0f0f0")
         self.delet_frame.pack(side=tk.TOP,  pady=2)
 
-        self.delete_button = ttk.Button(self.delet_frame, text="Delete", padding=0,  command=self.delete_rectangle)
+        self.delete_button = ttk.Button(self.delet_frame, text="Delete Box", padding=0,  command=self.delete_rectangle)
         self.delete_button.pack(side=tk.TOP, padx=5, pady=(2,0))
+        ToolTip(self.delete_button, "Deletes BBox of selected object if unLocked.\n\nBut you cam .:Right Click:. on Locked BBoxs and delete them.", self) 
+
+        self.IoU_Button = ttk.Button(self.edit_frame, text=f"IoU Treshold {int(self.IoU_Threshold*100):d}%", padding=0, command=self.Change_IoU_threshold, width=15)
+        self.IoU_Button.pack(side=tk.BOTTOM, padx=0)
+        ToolTip(self.IoU_Button, f'BBoxes with IoU more than {int(self.IoU_Threshold*100):d}% and the same Label may be ignored in some AI processes', self) 
 
     # توابع لازم برای اسکرول کردن ضلع‌های جعبه دور شیء
     def on_top_scroll(self, event):
@@ -3028,6 +3068,8 @@ class ProjectViewerApp(tk.Tk):
         self.Lockandgo_button.config(state='disabled')
         self.label_entry.config(state='disabled')
         self.delete_button.config(state='disabled')
+        self.MoveDown_button.config(state='disabled')
+        self.MoveUp_button.config(state='disabled')
         self.UnLock_button.config(state='normal')
 
     def enable_frame(self):
@@ -3044,6 +3086,8 @@ class ProjectViewerApp(tk.Tk):
         self.Lockandgo_button.config(state='normal')
         self.label_entry.config(state='normal')
         self.delete_button.config(state='normal')
+        self.MoveDown_button.config(state='normal')
+        self.MoveUp_button.config(state='normal')
         self.UnLock_button.config(state='disabled')
     
     def on_mouse_wheel(self, event):
@@ -4047,6 +4091,23 @@ class ProjectViewerApp(tk.Tk):
         IoU = intersection_area / union_area if union_area > 0 else 0
         return IoU
 
+    def Change_IoU_threshold(self):
+        # Get a number between 0 and 100 from the user.
+        # Returns:
+        #     int: The entered number in the range 30-100, or None if cancelled.
+        
+        number = int(simpledialog.askinteger(
+                    title="IoU Treshold %",
+                    prompt=f"IoU Treshold is now {int(self.IoU_Threshold * 100):d}%\nPlease enter a new number between 30 and 100:",
+                    parent=self,
+                    minvalue=30,
+                    maxvalue=100
+                ))
+        if number:
+            self.IoU_Threshold = number / 100
+            self.IoU_Button.configure(text=f"IoU_Threshold {int(self.IoU_Threshold*100):d}%")
+            # self.IoU_label.update
+        return        
 
     def Look_for_more_objects_by_AI(self):
         # اگر هوش مصنوعی در صفحه حاضر یک کاراکتر با لیبل متفاوت نسبت به دیتاست تشخیص دهد آنرا به لیست اضافه خواهد کرد
@@ -4582,6 +4643,48 @@ class ProjectViewerApp(tk.Tk):
 
     def showerror(self, title, message, icon='error'):
         self.showinfo(title, message, icon)
+
+class ToolTip:
+    def __init__(self, widget, text, master):
+        """
+        master: اشاره‌گر به پنجره اصلی (که حاوی self.Show_tips_on است)
+        """
+        self.widget = widget
+        self.text = text
+        self.master = master  # برای دسترسی به Show_tips_on
+        self.tip = None
+        widget.bind('<Enter>', self.show)
+        widget.bind('<Leave>', self.hide)
+
+    def show(self, event):
+        # اگر راهنماها غیرفعال هستند یا راهنمایی وجود ندارد، هیچ کاری نکن
+        if not self.master.Show_tips_on or self.tip or not self.text:
+            return
+        
+        # محاسبه موقعیت
+        x = self.widget.winfo_rootx() + self.widget.winfo_width() + 5
+        y = self.widget.winfo_rooty() + self.widget.winfo_height() // 2
+        
+        # ایجاد پنجره راهنما
+        self.tip = tk.Toplevel(self.widget)
+        self.tip.wm_overrideredirect(True)
+        self.tip.wm_geometry(f"+{x}+{y}")
+
+        # ایجاد لیبل با محدودیت عرض
+        label = tk.Label(
+            self.tip,
+            text=self.text,
+            bg='#ffffe0',
+            relief='solid',
+            borderwidth=1,
+            wraplength=200,  # محدودیت عرض بر حسب پیکسل (حدود 30 حرف با فونت پیش‌فرض)
+            justify='left'
+        )
+        label.pack()
+    def hide(self, event):
+        if self.tip:
+            self.tip.destroy()
+            self.tip = None
 
 def main():
     app = ProjectViewerApp()
