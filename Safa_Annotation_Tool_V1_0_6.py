@@ -2830,7 +2830,7 @@ class ProjectViewerApp(tk.Tk):
                 if current_point[0] >= len(self.rectangles):
                     current_point[0] = 0
                     current_point[1] += 1
-                if current_point[1] >= len(self.project_data["images"]) - 1:
+                if current_point[1] >= len(self.project_data["images"]):
                     current_point[1] = 0
                 self.rectangles = self.project_data["rectangles"][self.project_data["images"][current_point[1]]]
                 self.IsLocks = self.project_data["IsLocks"][self.project_data["images"][current_point[1]]]
