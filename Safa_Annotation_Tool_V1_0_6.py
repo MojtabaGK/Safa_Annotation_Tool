@@ -97,15 +97,14 @@ class ProjectViewerApp(tk.Tk):
         file_menu.add_command(label="Add New Image to the Project", command=self.Add_New_Image_to_Project)
         file_menu.add_command(label="Save Project As", command=self.save_project)
         Edit_menu = tk.Menu(menu_bar, tearoff=0)
-        Edit_menu.add_command(label="Find Persian character sequense", command=self.Find_Persian_character_sequense)
+        Edit_menu.add_command(label="Lock all BBoxes in current image", command=self.Lock_This_Image)
+        Edit_menu.add_command(label="unLock all BBoxes in current image", command=self.unLock_This_Image)
         Edit_menu.add_separator()  # اضافه کردن خط جداکننده
-        Edit_menu.add_command(label="Lock All", command=self.Lock_All)
-        Edit_menu.add_command(label="unLock All", command=self.unLock_All)
+        Edit_menu.add_command(label="Lock all BBoxes in all images", command=self.Lock_All)
+        Edit_menu.add_command(label="unLock all BBoxes in all images", command=self.unLock_All)
         Edit_menu.add_separator()  # اضافه کردن خط جداکننده
-        Edit_menu.add_command(label="Lock This Image", command=self.Lock_This_Image)
-        Edit_menu.add_command(label="unLock This Image", command=self.unLock_This_Image)
-        Edit_menu.add_separator()  # اضافه کردن خط جداکننده
-        Edit_menu.add_command(label="Clear Bounding box for the current image", command=self.Clear_BBox_list)
+        Edit_menu.add_command(label="Clear unLocked BBoxes for the current image", command=self.delete_unLocked_BBoxes_current_image)
+        Edit_menu.add_command(label="Clear all BBoxes for the current image", command=self.Clear_BBox_list)
         Export_menu = tk.Menu(menu_bar, tearoff=0)
         Export_menu.add_command(label="Split images by BBoxes", command=self.Split_images_by_BBoxes)
         Export_menu.add_command(label="Split images by BBoxes and label", command=self.Split_images_by_Label)
@@ -362,16 +361,9 @@ class ProjectViewerApp(tk.Tk):
             self.Labels = self.project_data["Labels"][self.project_data["images"][self.img_index]]
             if self.rectangles == []:
                 self.rect_index = None
-                self.label_var.set("")
-                self.coords = None
-                self.rec_islock = None
-                self.Rec_Label = None
                 self.crop_canvas.delete("all")
             else:
                 self.rect_index = 0
-                self.coords = list(self.rectangles[self.rect_index])  # Copy for editing
-                self.rec_islock = self.IsLocks[self.rect_index]  # Copy for editing
-                self.Rec_Label = self.Labels[self.rect_index]  # Copy for editing
             self.populate_rectangle_list()
             
             # activate first image
@@ -386,22 +378,22 @@ class ProjectViewerApp(tk.Tk):
             self.label_entry.icursor(tk.END)  # Move cursor to end of text
 
         else:
-            self.showerror("Warning", "No image is available in the project you selected.\nAdd images if you want.", icon='warning')
+            self.showinfo("Warning", "No image is available in the project you selected.\nAdd images if you want.", icon='warning')
         
-        self.showinfo("Success", "Project opened successfully")
-
         if self.project_data["path_to_AI"] != "":
             if os.path.exists(self.project_data["path_to_AI"]):
                 try:
                     self.model = YOLO(self.project_data["path_to_AI"])
                     self.model.eval()
-                    self.showinfo("AI loaded successfully", "AI assistant model loaded successfully.")
+                    self.showinfo("Success", "Project opened successfully\n\n\nAI assistant model loaded successfully too.")
                 except Exception as e:
-                    self.showerror("Error", f"Could not load AI\n\n{self.project_data["path_to_AI"]}\n\nYou can load new AI later and try again\n\n{e}")
                     self.project_data["path_to_AI"] = ""
+                    self.showwarning("Warning", f"Project opened successfully\n\n\nBut Could not load AI model:\n\n{self.project_data["path_to_AI"]}\n\nYYou can load another later.\n\n{e}")
             else:
-                self.showinfo("Error", "AI assistant model path is was not valid.\nYou can load another later.")
+                self.showwarning("Error", f"Project opened successfully\n\n\nBut AI assistant model path \n\n{self.project_data["path_to_AI"]}\n\nis not valid.\nYou can load another later.")
                 self.project_data["path_to_AI"] = ""
+        else:
+            self.showinfo("Success", "Project opened successfully\n\n\nNo AI assistant model proviided in file.\nYou can load one later.")
 
     def new_project(self):
         self.Show_tips_on = False
@@ -741,7 +733,7 @@ class ProjectViewerApp(tk.Tk):
     def delete_image_from_project(self):
         if self.img_index != None:
             fname = self.project_data["images"][self.img_index]
-            response = self.askyesno(
+            response = self.askyesnocancel(
                 title = "Delete image from project",
                 message = f"Are you sure you want to delete the following image?\n\n  {fname}",
                 icon='warning'
@@ -1225,6 +1217,9 @@ class ProjectViewerApp(tk.Tk):
         Auto_sort = ttk.Button(frame2, text="⇊ Sort ⇇", padding=1, width=10, command=self.Auto_sort_rectangles)
         Auto_sort.pack(side=tk.LEFT, expand=True, padx=0)
         ToolTip(Auto_sort, "Sorts objects (Locked and unLocked) vertically or horizontally. Later, AI assistant will help for sorting.", self) 
+        Delete_unLocked = ttk.Button(frame2, text="DUB", padding=1, width=5, command=self.delete_unLocked_BBoxes_current_image)
+        Delete_unLocked.pack(side=tk.LEFT, expand=True, padx=0)
+        ToolTip(Delete_unLocked, "Deletes unLocked BBoxes in the current image.", self) 
         self.MoveDown_button = ttk.Button(frame2, text="↓", padding=1, width=5, command=self.move_rectangle_down)
         self.MoveDown_button.pack(side=tk.RIGHT, padx=(0, 5))
         ToolTip(self.MoveDown_button, "Moves down the object in the list. Diactivated for Locked objects.\n\nBut You can hold .:Ctrl:. and click .:Down:. to move down Locked objects.", self) 
@@ -1264,16 +1259,7 @@ class ProjectViewerApp(tk.Tk):
         self.top_frame = tk.Frame(self.edit_frame, bg="#f0f0f0")
         self.top_frame.pack(pady=2)
 
-        #         # ایجاد متن توضیحی زیر دکمه
-        # self.bottom_button_label = tk.Label(
-        #     self.top_frame, 
-        #     text="Click or hold Control\nand Scroll on Buttons",
-        #     font=("Tahoma", 8),
-        #     fg="gray"
-        # )
-        # self.bottom_button_label.pack(side=tk.TOP, pady=(2, 0))
-
-        # در این قسمت دکمه‌های تنظیم دقیق‌تر کادر دور شیء ایجاد می‌شوند. این دکمه‌ها قابلیت اسکرول هم دارند
+                # در این قسمت دکمه‌های تنظیم دقیق‌تر کادر دور شیء ایجاد می‌شوند. این دکمه‌ها قابلیت اسکرول هم دارند
         button_width = 6
         # Top Frame
         self.left_top_button = ttk.Button(self.top_frame, text="↑", padding=0, width=button_width+7, command=self.move_top_up)
@@ -1389,7 +1375,7 @@ class ProjectViewerApp(tk.Tk):
         self.delete_button.pack(side=tk.TOP, padx=5, pady=(2,0))
         ToolTip(self.delete_button, "Deletes BBox of selected object if unLocked.\n\nBut you cam .:Right Click:. on Locked BBoxs and delete them.", self) 
 
-        self.IoU_Button = ttk.Button(self.edit_frame, text=f"IoU Treshold {int(self.IoU_Threshold*100):d}%", padding=0, command=self.Change_IoU_threshold, width=15)
+        self.IoU_Button = ttk.Button(self.edit_frame, text=f"IoU Treshold {int(self.IoU_Threshold*100):d}%", padding=0, command=self.Change_IoU_threshold, width=18)
         self.IoU_Button.pack(side=tk.BOTTOM, padx=0)
         ToolTip(self.IoU_Button, f'BBoxes with IoU more than {int(self.IoU_Threshold*100):d}% and the same Label may be ignored in some AI processes', self) 
 
@@ -2033,10 +2019,6 @@ class ProjectViewerApp(tk.Tk):
             self.lb2.activate(self.rect_index)                  # Set the active item to the first one
             self.lb2.see(self.rect_index)                      # Scroll to make sure the first item is visible
             self.update_edit_panel_and_image_crop
-            # if self.rec_islock:
-            #     self.disable_frame()
-            # else:
-            #     self.enable_frame()
                 
         else:
             self.lb2.insert(tk.END, "(No rectangles)")  # Indicate no rectangles
@@ -2356,6 +2338,87 @@ class ProjectViewerApp(tk.Tk):
                 # self.label_entry.focus_set()                 # Set keyboard focus to the labeling box for better UX                
                 self.label_entry.icursor(tk.END)  # Move cursor to end of text
 
+    def delete_unLocked_BBoxes_current_image(self):
+        response = self.askyesnocancel('Confirm Delete', 'Are you sure to delete unLocked BBoxes?', icon='warning')
+        if response != True:
+            return
+        if self.img_index is None:
+            return
+        fname = self.project_data["images"][self.img_index]
+        
+        # بررسی اینکه آیا لیست قفل‌ها خالی است
+        if not self.project_data["IsLocks"][fname]:
+            return
+        
+        # پیدا کردن ایندکس‌هایی که قفل نیستند (False)
+        unLocked_indexes = [
+            i for i, is_locked in enumerate(self.project_data["IsLocks"][fname]) 
+            if not is_locked
+        ]
+        if not unLocked_indexes:
+            return
+        
+        # پیدا کردن ایندکس‌هایی که قفل هستند (ُTrue)
+        remaining_indexes = [
+            i for i, is_locked in enumerate(self.project_data["IsLocks"][fname]) 
+            if is_locked
+        ]
+        
+        if self.rect_index != None:
+            self.canvas.itemconfig(self.rec_IDs[self.rect_index], outline="blue")
+
+        # ========== ذخیره ایندکس فعلی ==========
+        current_index = self.rect_index
+
+        # حذف از آخر به اول (برای جلوگیری از تغییر ایندکس‌ها)
+        for idx in sorted(unLocked_indexes, reverse=True):
+            del self.project_data["rectangles"][fname][idx]
+            del self.project_data["IsLocks"][fname][idx]
+            del self.project_data["Labels"][fname][idx]
+            
+            # حذف از rec_IDs (اگر موجود باشد)
+            if idx < len(self.rec_IDs):
+                self.canvas.delete(self.rec_IDs[idx])
+                del self.rec_IDs[idx]
+        
+        # به‌روزرسانی متغیرهای محلی
+        self.rectangles = self.project_data["rectangles"][fname]
+        self.IsLocks = self.project_data["IsLocks"][fname]
+        self.Labels = self.project_data["Labels"][fname]
+
+        # ========== محاسبه ایندکس جدید ==========
+        if len(remaining_indexes) > 0:
+            if current_index is not None:
+                if current_index in remaining_indexes:
+                    new_index = remaining_indexes.index(current_index)
+                else:
+                    smaller_indexes = [i for i in remaining_indexes if i < current_index]
+                    if smaller_indexes:
+                        new_index = remaining_indexes.index(max(smaller_indexes))
+                    else:
+                        # اگر هیچ ایندکس کوچکتری وجود ندارد، به اولین آیتم برو
+                        new_index = 0
+            else:
+                # اگر قبلاً هیچ آیتمی انتخاب نشده بود
+                new_index = 0
+        
+            self.rect_index = new_index
+
+        else:
+            self.rect_index = None
+            self.label_var.set("")
+        self.populate_rectangle_list()
+        if self.rect_index != None:
+            self.coords = list(self.rectangles[self.rect_index])  # Copy for editing
+            self.rec_islock = self.IsLocks[self.rect_index]  # Copy for editing
+            self.Rec_Label = self.Labels[self.rect_index]  # Copy for editing
+            self.update_edit_panel_and_image_crop()
+            self.canvas.itemconfig(self.rec_IDs[self.rect_index], outline="red")
+        else:
+            self.crop_canvas.delete("all")
+        self.label_entry.focus_set()                 # Set keyboard focus to the labeling box for better UX                
+        self.label_entry.icursor(tk.END)  # Move cursor to end of text
+
     def move_rectangle_down(self):
         if self.rect_index != None:
             if self.rect_index < len(self.project_data["rectangles"][self.project_data["images"][self.img_index]])- 1:
@@ -2428,9 +2491,14 @@ class ProjectViewerApp(tk.Tk):
             elif response == False:
                 self.showinfo('Success', 'List is successfully sorted horisontally.') # Horisontally
 
+            self.label_entry.focus_set()      # Set keyboard focus to the labeling box for better UX                
+            self.label_entry.icursor(tk.END)  # Move cursor to end of text
+
         else:
             self.rect_index = None
             self.showerror('Error', 'List is empty.')
+            return
+        
 
     def on_rectangle_right_click(self, event):
         # Identify the clicked image item index
@@ -2935,71 +3003,6 @@ class ProjectViewerApp(tk.Tk):
                     if current_point == start_point:
                         check = False                
                     current_point[0] += 1
-
-    def Find_Persian_character_sequense(self):
-        while True:
-
-            char_sequense = simpledialog.askstring("Find String", "Write the character sequense\nyou are looking for (In Persian):", 
-                                                   initialvalue= self.char_sequense)
-
-            if char_sequense == None:
-                return
-            else:
-                self.char_sequense = char_sequense
-                
-            Label_sequense = []
-            for chr in self.char_sequense:
-                if chr == 'ي':
-                    chr = 'ی'
-                if chr in self.Str_to_name:
-                    Label_sequense.append(self.Str_to_name[chr])
-                else:
-                    self.showerror('Error', f"This character is not in our Persian character list:\n\"{chr}\"")
-                    continue
-
-            if self.rect_index != None:
-                start_point = list((self.rect_index, self.img_index))
-                current_point = list((self.rect_index + 1, self.img_index))
-                self.Labels = self.project_data["Labels"][self.project_data["images"][current_point[1]]]
-                check = True
-                while check:
-                    if current_point[0] >= len(self.Labels) - len(Label_sequense) + 1:
-                        current_point[0] = 0
-                        current_point[1] += 1
-                    if current_point[1] >= len(self.project_data["images"]):
-                        current_point[1] = 0
-                    self.rectangles = self.project_data["rectangles"][self.project_data["images"][current_point[1]]]
-                    self.IsLocks = self.project_data["IsLocks"][self.project_data["images"][current_point[1]]]
-                    self.Labels = self.project_data["Labels"][self.project_data["images"][current_point[1]]]
-                    if self.Labels == []:
-                        current_point[0] = 0
-                        current_point[1] += 1
-                        continue
-                    if  self.Labels[current_point[0]] == Label_sequense[0]:
-                        found_sequense = []
-                        for idx in range(len(Label_sequense)):
-                            found_sequense.append(self.project_data["Labels"][self.project_data["images"][current_point[1]]][current_point[0] + idx])
-                        if Label_sequense == found_sequense:
-                            self.img_index = current_point[1]
-                            self.rect_index = current_point[0]
-                            self.rec_islock = self.IsLocks[current_point[0]]
-                            self.coords = self.rectangles[current_point[0]]
-                            self.Rec_Label = self.Labels[current_point[0]]  # Copy for editing
-                            self.populate_rectangle_list()
-                            if current_point[1] != start_point[1]:
-                                self.crop_cords = list((0, 0, 1, 1))
-                                self.zoom_factor = 1
-                                self.display_image() # Your method to display the image number self.img_index
-                            self.draw_rectamgles()
-                            # self.update_edit_panel_and_image_crop()
-                            self.update_rectangle_preview()
-                            self.label_entry.focus_set()                 # Set keyboard focus to the labeling box for better UX                
-                            self.label_entry.icursor(tk.END)  # Move cursor to end of text
-                            check = False
-                    if current_point == start_point:
-                        check = False                
-                    current_point[0] += 1
-
 
     def Lock_All(self):
         for fname in self.project_data["images"]:
@@ -4001,15 +4004,15 @@ class ProjectViewerApp(tk.Tk):
                     self.label_entry.focus_set()                 # Set keyboard focus to the labeling box for better UX                
                     self.label_entry.icursor(tk.END)  # Move cursor to end of text
                 else:
-                    self.showinfo("Caution", "Nothing is found in this image.")
+                    self.showinfo("Caution", "Successful\n\nNothing is found in this image by AI.")
                     return
                 if do_message_flag:
-                    self.showinfo("Info", f"The AI model at address\n\n{self.project_data['path_to_AI']}\n\nwas run on the image  {fname},and the results were added to the list of annotated objects.")
+                    self.showinfo("Info", f"The AI model at address\n\n{self.project_data['path_to_AI']}\n\nwas run on the image  {fname}.\nThe results were added (unLocked) to the list of Bounding Boxes.")
             else:
-                self.showinfo("No image", "No image is selected,\nnot successful.")
+                self.showwarning("No image", "No image is selected,\nnot successful.")
                 return  # No image is selected
         else:
-            self.showinfo("No AI model", "No AI model is available,\nnot successful.")
+            self.showerror("No AI model", "No AI model is available,\nnot successful.")
             return  # No AI model is available
 
     def Apply_deep_learning_model_to_All(self):
@@ -4313,6 +4316,8 @@ class ProjectViewerApp(tk.Tk):
         - 'question': آیکون سوال (پیش‌فرض)
         """
         
+        self.attributes('-disabled', True)
+        
         # ایجاد پنجره جدید
         dialog = tk.Toplevel(self)
         dialog.title(title)
@@ -4384,14 +4389,18 @@ class ProjectViewerApp(tk.Tk):
         button_frame = ttk.Frame(main_frame)
         button_frame.pack(side=tk.BOTTOM, fill=tk.X)  # ← fill=tk.X برای پر کردن عرض
                
-        def on_yes():
+        def on_yes(event=None):
             nonlocal result
             result = True
+            self.attributes('-disabled', False)
+            self.focus_force() 
             dialog.destroy()
         
         def on_no():
             nonlocal result
             result = False
+            self.attributes('-disabled', False)
+            self.focus_force() 
             dialog.destroy()
 
         # تابع خالی برای غیرفعال کردن X
@@ -4411,11 +4420,14 @@ class ProjectViewerApp(tk.Tk):
         # فوکوس پیش‌فرض روی دکمه Yes
         yes_btn.focus_set()
 
+        yes_btn.bind('<Return>', lambda e: on_yes())
+        no_btn.bind('<Return>', lambda e: on_no())
+
         # بستن با دکمه X غیر فعال است
-        dialog.protocol("WM_DELETE_WINDOW", lambda: do_nothing(yes_btn, no_btn))  # هیچ کاری نکن        
+        dialog.protocol("WM_DELETE_WINDOW", lambda: do_nothing(yes_btn, no_btn))
 
         # 2. غیرفعال کردن کلید Escape
-        dialog.bind('<Escape>', do_nothing)  # یا 'break' برای جلوگیری از رویداد
+        dialog.bind('<Escape>', lambda event: do_nothing(yes_btn, no_btn))  # یا 'break' برای جلوگیری از رویداد
        
         # منتظر ماندن برای بسته شدن پنجره
         dialog.wait_window()
@@ -4432,6 +4444,8 @@ class ProjectViewerApp(tk.Tk):
         - 'question': آیکون سوال (پیش‌فرض)
         """
         
+        self.attributes('-disabled', True)
+       
         # ایجاد پنجره جدید
         dialog = tk.Toplevel(self)
         dialog.title(title)
@@ -4503,20 +4517,26 @@ class ProjectViewerApp(tk.Tk):
         button_frame = ttk.Frame(main_frame)
         button_frame.pack(side=tk.BOTTOM, fill=tk.X)  # ← fill=tk.X برای پر کردن عرض
                
-        def on_yes():
+        def on_yes(event=None):
             nonlocal result
             result = True
+            self.attributes('-disabled', False)
+            self.focus_force() 
             dialog.destroy()
         
         def on_no():
             nonlocal result
             result = False
+            self.attributes('-disabled', False)
+            self.focus_force() 
             dialog.destroy()
 
         # تابع خالی برای غیرفعال کردن X
-        def do_cancel():
+        def do_cancel(event=None):
             nonlocal result
             result = None
+            self.attributes('-disabled', False)
+            self.focus_force() 
             dialog.destroy()
         
         yes_btn = ttk.Button(button_frame, text="Yes", command=on_yes, width=10)
@@ -4531,6 +4551,10 @@ class ProjectViewerApp(tk.Tk):
         # فوکوس پیش‌فرض روی دکمه Yes
         yes_btn.focus_set()
 
+        yes_btn.bind('<Return>', lambda e: on_yes())
+        no_btn.bind('<Return>', lambda e: on_no())
+        cahcel_btn.bind('<Return>', lambda e: do_cancel())
+
         # بستن با دکمه X غیر فعال است
         dialog.protocol("WM_DELETE_WINDOW", do_cancel)  # هیچ کاری نکن        
 
@@ -4538,7 +4562,7 @@ class ProjectViewerApp(tk.Tk):
         dialog.bind('<Escape>', do_cancel)  # یا 'break' برای جلوگیری از رویداد
        
         # منتظر ماندن برای بسته شدن پنجره
-        dialog.wait_window()
+        dialog.wait_window()     
 
         return result
     
@@ -4550,8 +4574,9 @@ class ProjectViewerApp(tk.Tk):
         - 'error'   : آیکون خطا
         - 'question': آیکون سوال (پیش‌فرض)
         """
-        
-        # ایجاد پنجره جدید
+
+        self.attributes('-disabled', True)
+
         dialog = tk.Toplevel(self)
         dialog.title(title)
         height = max(130, min(300, 100 + (25 * ((len(message) * 10 + 290) // 290))))
@@ -4615,25 +4640,31 @@ class ProjectViewerApp(tk.Tk):
         )
         label.pack(fill=tk.BOTH, expand=True, pady=(0, 15))
 
+        # تابع خالی برای غیرفعال کردن X
+        def do_destroy(event=None):  # ← اضافه کردن event=None
+            self.attributes('-disabled', False)
+            self.focus_force() 
+            dialog.destroy()
+
         # ========== بخش دکمه‌ها ==========
         button_frame = ttk.Frame(main_frame)
         button_frame.pack(side=tk.BOTTOM, fill=tk.X)  # ← fill=tk.X برای پر کردن عرض
                       
-        OK_btn = ttk.Button(button_frame, text="OK", command=dialog.destroy, width=10)
+        OK_btn = ttk.Button(button_frame, text="OK", command=do_destroy, width=10)
         OK_btn.pack(side=tk.RIGHT, pady=5)
         
-        # فوکوس پیش‌فرض روی دکمه Yes
+        # فوکوس پیش‌فرض روی دکمه OK
         OK_btn.focus_set()
 
-        # کلید Enter برای Yes
-        dialog.bind('<Return>', dialog.destroy)
+        # کلید Enter برای OK
+        dialog.bind('<Return>', do_destroy)
 
         # 2. غیرفعال کردن کلید Escape
-        dialog.bind('<Escape>', dialog.destroy)  # یا 'break' برای جلوگیری از رویداد
+        dialog.bind('<Escape>', do_destroy)  # یا 'break' برای جلوگیری از رویداد
 
-        dialog.protocol("WM_DELETE_WINDOW", dialog.destroy)
+        dialog.protocol("WM_DELETE_WINDOW", do_destroy)
 
-        # منتظر ماندن برای بسته شدن پنجره
+       # منتظر ماندن برای بسته شدن پنجره
         dialog.wait_window()
 
         return 
