@@ -155,6 +155,7 @@ class ProjectViewerApp(tk.Tk):
         )
         if project_txt_path:
             self.load_project_from_file(project_txt_path)
+        self.label_entry.focus()
 
     def load_project_from_file(self, project_txt_path):
         self.Show_tips_on = False
@@ -251,7 +252,6 @@ class ProjectViewerApp(tk.Tk):
             self.lb1.selection_set(self.img_index)              # Select the first item (index 0)
             self.lb1.activate(self.img_index)                  # Set the active item to the first one
             self.lb1.see(self.img_index)                      # Scroll to make sure the first item is visible
-            self.lb1.focus_set()                 # Set keyboard focus to the listbox for better UX                
             self.display_image() # Your method to display the image number self.img_index
         
         # Skip empty lines and "Rectangles per image:" header
@@ -1162,7 +1162,7 @@ class ProjectViewerApp(tk.Tk):
         self.lb1.bind("<<ListboxSelect>>", self.on_file_select)
         # اتصال رویداد رها کردن دکمه موس به تابع
         self.lb1.bind('<ButtonRelease-1>', self.on_listbox_release)
-        ToolTip(self.lb1, "List of images in the current project.", self) 
+        ToolTip(self.lb1, "List of images in the current project.\n\nHold .:Shift:. and press Up and Down keys to move between images.", self) 
 
         # ایجاد یک فریم برای دکمه‌ها در پایین
         button_frame = ttk.Frame(frame1, width=24)
@@ -1350,6 +1350,8 @@ class ProjectViewerApp(tk.Tk):
         self.label_entry.bind("<Up>", self.on_key_down)
         self.label_entry.bind("<Control-Up>", self.on_key_down)
         self.label_entry.bind("<Return>", self.on_key_down)
+        self.label_entry.bind("<Shift-Down>", self.on_key_down)  # ← اضافه شد
+        self.label_entry.bind("<Shift-Up>", self.on_key_down)    # ← اضافه شد
         ToolTip(self.label_entry, "Enter Label of the object. You can type one character and change it later to the full name of Label.", self) 
         
 
@@ -1559,13 +1561,17 @@ class ProjectViewerApp(tk.Tk):
     def on_key_down(self, event):
         """مدیریت فشردن کلیدها"""
         if event.keysym == "Down":  # اگر دکمه پایین فشار داده شد
-            if event.state & 0x4:  # بررسی اینکه کلید Ctrl هم فشرده شده
-                self.move_rectangle_down()  # تابع جدید برای Ctrl + پایین
+            if event.state & 0x1:  # بررسی Shift
+                self.go_next_image()
+            elif event.state & 0x4:  # بررسی Ctrl
+                self.move_rectangle_down()
             else:
                 self.go_next()           
         elif event.keysym == "Up":  # اگر دکمه بالا فشار داده شد
-            if event.state & 0x4:  # بررسی اینکه کلید Ctrl هم فشرده شده
-                self.move_rectangle_up()  # تابع جدید برای Ctrl + بالا
+            if event.state & 0x1:  # بررسی Shift
+                self.go_back_image()
+            elif event.state & 0x4:  # بررسی Ctrl
+                self.move_rectangle_up()
             else:
                 self.go_back()        
         elif event.keysym == "Return":  # اگر اینتر فشار داده شد
@@ -2237,7 +2243,7 @@ class ProjectViewerApp(tk.Tk):
         rec_ids = []
         if self.img_index != None:
             self.rectangles = self.project_data["rectangles"][self.project_data["images"][self.img_index]]
-            for coords in self.rectangles:
+            for idx, coords in enumerate(self.rectangles):
                 # Update coordinates relative to image Zoom
                 rel_start_x = (-self.crop_cords[0] + coords[0])*self.zoom_factor
                 rel_start_y = (-self.crop_cords[1] + coords[1])*self.zoom_factor
@@ -2248,7 +2254,10 @@ class ProjectViewerApp(tk.Tk):
                 y1 = int(rel_start_y * canvas_height)
                 x2 = int(rel_end_x * canvas_width)
                 y2 = int(rel_end_y * canvas_height)
-                new_id = self.canvas.create_rectangle(x1 - 1, y1 - 1, x2, y2, outline="blue", width=2)    
+                if self.project_data["IsLocks"][self.project_data["images"][self.img_index]][idx]:
+                    new_id = self.canvas.create_rectangle(x1 - 1, y1 - 1, x2, y2, outline="blue", width=2)
+                else:
+                    new_id = self.canvas.create_rectangle(x1 - 1, y1 - 1, x2, y2, outline="yellow", width=2)
                 rec_ids.append(new_id)
             
             self.rec_IDs = rec_ids
@@ -2812,15 +2821,16 @@ class ProjectViewerApp(tk.Tk):
             self.disable_frame()
     
     def go_next(self):
-        if self.rect_index  != None:
+        if self.rect_index != None:
             start_point = list((self.rect_index, self.img_index))
             current_point = list((self.rect_index + 1, self.img_index))
             self.rectangles = self.project_data["rectangles"][self.project_data["images"][current_point[1]]]
             while True:
+                self.rectangles = self.project_data["rectangles"][self.project_data["images"][current_point[1]]]
                 if current_point[0] >= len(self.rectangles):
                     current_point[0] = 0
                     current_point[1] += 1
-                if current_point[1] >= len(self.project_data["images"]):
+                if current_point[1] >= len(self.project_data["images"]) - 1:
                     current_point[1] = 0
                 self.rectangles = self.project_data["rectangles"][self.project_data["images"][current_point[1]]]
                 self.IsLocks = self.project_data["IsLocks"][self.project_data["images"][current_point[1]]]
@@ -2841,15 +2851,12 @@ class ProjectViewerApp(tk.Tk):
                         self.zoom_factor = 1
                         self.display_image() # Your method to display the image number self.img_index
                     self.draw_rectamgles()
-                    # self.update_edit_panel_and_image_crop()
                     self.update_rectangle_preview()
                     self.label_entry.focus_set()                 # Set keyboard focus to the labeling box for better UX                
                     self.label_entry.icursor(tk.END)  # Move cursor to end of text
                     return
-                if current_point == start_point:
-                    self.Lockandgo_button.config(state='disabled')
-                    return                
-                current_point[0] += 1
+        else:
+            self.go_next_image()
 
     def go_back(self):
         if self.rect_index  != None:
@@ -2881,14 +2888,63 @@ class ProjectViewerApp(tk.Tk):
                         self.display_image() # Your method to display the image number self.img_index
                     self.draw_rectamgles()
                     # self.update_edit_panel_and_image_crop()
-                    self.update_rectangle_preview()
+                    self.update_edit_panel_and_image_crop()
                     self.label_entry.focus_set()                 # Set keyboard focus to the labeling box for better UX                
                     self.label_entry.icursor(tk.END)  # Move cursor to end of text
                     return
-                if current_point == start_point:
-                    self.Lockandgo_button.config(state='disabled')
-                    return                
-                current_point[0] -= 1
+        else:
+            self.go_back_image()
+
+
+    def go_next_image(self):
+        if self.img_index != None:
+            if self.img_index >= len(self.project_data["images"]) - 1:
+                self.img_index = 0
+            else:
+                self.img_index = self.img_index + 1
+
+            reclength = len(self.project_data["rectangles"][self.project_data["images"][self.img_index]])
+            if self.rect_index == None:
+                if reclength == 0:
+                    self.rect_index = None
+                else:
+                    self.rect_index = 0
+            elif reclength - 1 < self.rect_index:
+                self.rect_index = reclength - 1
+
+            self.populate_rectangle_list()
+            self.crop_cords = list((0, 0, 1, 1))
+            self.zoom_factor = 1
+            self.display_image() # Your method to display the image number self.img_index
+            self.draw_rectamgles()
+            self.update_edit_panel_and_image_crop()
+            self.label_entry.focus_set()                 # Set keyboard focus to the labeling box for better UX                
+            self.label_entry.icursor(tk.END)  # Move cursor to end of text
+
+    def go_back_image(self):
+        if self.img_index != None:
+            if self.img_index <= 0:
+                self.img_index = len(self.project_data["images"]) - 1
+            else:
+                self.img_index = self.img_index - 1
+
+            reclength = len(self.project_data["rectangles"][self.project_data["images"][self.img_index]])
+            if self.rect_index == None:
+                if reclength == 0:
+                    self.rect_index = None
+                else:
+                    self.rect_index = 0
+            elif reclength - 1 < self.rect_index:
+                self.rect_index = reclength - 1
+
+            self.populate_rectangle_list()
+            self.crop_cords = list((0, 0, 1, 1))
+            self.zoom_factor = 1
+            self.display_image() # Your method to display the image number self.img_index
+            self.draw_rectamgles()
+            self.update_rectangle_preview()
+            self.label_entry.focus_set()                 # Set keyboard focus to the labeling box for better UX                
+            self.label_entry.icursor(tk.END)  # Move cursor to end of text
 
     def Lock_and_go_next(self):
         if self.rect_index  != None:
