@@ -2942,7 +2942,7 @@ class ProjectViewerApp(tk.Tk):
             self.zoom_factor = 1
             self.display_image() # Your method to display the image number self.img_index
             self.draw_rectamgles()
-            self.update_rectangle_preview()
+            self.update_edit_panel_and_image_crop()
             self.label_entry.focus_set()                 # Set keyboard focus to the labeling box for better UX                
             self.label_entry.icursor(tk.END)  # Move cursor to end of text
 
