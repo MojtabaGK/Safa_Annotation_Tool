@@ -351,6 +351,12 @@ class ProjectViewerApp(tk.Tk):
 
                 i += 1
 
+        # Sum of the BBoxes
+        Sum_of_the_BBoxes = 0
+        for fname in self.project_data["images"]:
+            Sum_of_the_BBoxes += len(self.project_data["rectangles"][fname])
+
+
         # Retrieve the list of rectangles for the first image
         image_files = self.project_data["images"]
         self.populate_image_list(image_files)
@@ -371,7 +377,6 @@ class ProjectViewerApp(tk.Tk):
             self.lb1.selection_set(self.img_index)              # Select the first item (index 0)
             self.lb1.activate(self.img_index)                  # Set the active item to the first one
             self.lb1.see(self.img_index)                      # Scroll to make sure the first item is visible
-            self.lb1.focus_set()                 # Set keyboard focus to the listbox for better UX                
             self.display_image() # Your method to display the image number self.img_index
             self.draw_rectamgles()
             self.update_edit_panel_and_image_crop()
@@ -385,15 +390,15 @@ class ProjectViewerApp(tk.Tk):
                 try:
                     self.model = YOLO(self.project_data["path_to_AI"])
                     self.model.eval()
-                    self.showinfo("Success", "Project opened successfully\n\n\nAI assistant model loaded successfully too.")
-                except Exception as e:
+                    self.showinfo("Success", f"Project opened successfully\n\nSum of the BBoxes is:   {Sum_of_the_BBoxes}\n\nAI assistant model loaded successfully too.")
+                except:
                     self.project_data["path_to_AI"] = ""
-                    self.showwarning("Warning", f"Project opened successfully\n\n\nBut Could not load AI model:\n\n{self.project_data["path_to_AI"]}\n\nYYou can load another later.\n\n{e}")
+                    self.showwarning("Warning", f"Project opened successfully\n\nSum of the BBoxes is:   {Sum_of_the_BBoxes}\n\nBut Could not load AI model:\n\n{self.project_data["path_to_AI"]}\n\nYYou can load another later.")
             else:
-                self.showwarning("Error", f"Project opened successfully\n\n\nBut AI assistant model path \n\n{self.project_data["path_to_AI"]}\n\nis not valid.\nYou can load another later.")
+                self.showwarning("Error", f"Project opened successfully\n\nSum of the BBoxes is:   {Sum_of_the_BBoxes}\n\nBut AI assistant model path \n\n{self.project_data["path_to_AI"]}\n\nis not valid.\nYou can load another later.")
                 self.project_data["path_to_AI"] = ""
         else:
-            self.showinfo("Success", "Project opened successfully\n\n\nNo AI assistant model proviided in file.\nYou can load one later.")
+            self.showinfo("Success", f"Project opened successfully\n\nSum of the BBoxes is:   {Sum_of_the_BBoxes}\n\nNo AI assistant model proviided in file.\nYou can load one later.")
 
     def new_project(self):
         self.Show_tips_on = False
@@ -528,7 +533,6 @@ class ProjectViewerApp(tk.Tk):
                 self.lb1.selection_set(self.img_index)              # Select the first item (index 0)
                 self.lb1.activate(self.img_index)                  # Set the active item to the first one
                 self.lb1.see(self.img_index)                      # Scroll to make sure the first item is visible
-                self.lb1.focus_set()                 # Set keyboard focus to the listbox for better UX                
 
                 self.rectangles = self.project_data["rectangles"][self.project_data["images"][self.img_index]]
                 self.IsLocks = self.project_data["IsLocks"][self.project_data["images"][self.img_index]]
@@ -710,7 +714,6 @@ class ProjectViewerApp(tk.Tk):
         self.lb1.selection_set(self.img_index)              # Select the first item (index 0)
         self.lb1.activate(self.img_index)                  # Set the active item to the first one
         self.lb1.see(self.img_index)                      # Scroll to make sure the first item is visible
-        self.lb1.focus_set()                 # Set keyboard focus to the listbox for better UX                
 
         self.rectangles = self.project_data["rectangles"][self.project_data["images"][self.img_index]]
         self.IsLocks = self.project_data["IsLocks"][self.project_data["images"][self.img_index]]
@@ -723,12 +726,12 @@ class ProjectViewerApp(tk.Tk):
        
         self.populate_rectangle_list()
         self.update_edit_panel_and_image_crop()
-        self.label_entry.focus_set()
-        self.label_entry.icursor(tk.END)  # Move cursor to end of text
-  
         self.showinfo(
             "Operation completed",
             f"The operation of adding new images was successful.   {files_added}   images added to the project")
+        self.label_entry.focus_set()
+        self.label_entry.icursor(tk.END)  # Move cursor to end of text
+  
 
     def delete_image_from_project(self):
         if self.img_index != None:
@@ -777,7 +780,6 @@ class ProjectViewerApp(tk.Tk):
                     self.lb1.selection_set(self.img_index)              # Select the first item (index 0)
                     self.lb1.activate(self.img_index)                  # Set the active item to the first one
                     self.lb1.see(self.img_index)                      # Scroll to make sure the first item is visible
-                    self.lb1.focus_set()                 # Set keyboard focus to the listbox for better UX                
 
                     # Reset Zoom
                     self.zoom_factor = 1 # Zoom factor
@@ -896,6 +898,7 @@ class ProjectViewerApp(tk.Tk):
                                                         f'Cannot copy {fname} because it is being used by this program in image panel.\n'
                                                         f'Please repeat SavaAs when another image is shown in panel', 
                                                         icon='warning')
+                                                    self.label_entry.focus_set()                 # Set keyboard focus to the labeling box for better UX
                                                     return
                                         else:
                                             # فایل در مقصد وجود ندارد -> کپی کن
@@ -906,6 +909,7 @@ class ProjectViewerApp(tk.Tk):
                                             icon='warning')
                         else:
                             self.showinfo('Error', 'Source or destination folder for images doesnt Exist!', icon='error')
+                            self.label_entry.focus_set()                 # Set keyboard focus to the labeling box for better UX                
                             return
                         
                         self.showinfo("Success", "Project saved successfully.\nIf you intend to edit the project you have recently saved, you must open it. Otherwise, the old project file will be edited. Unless the source and destination were the same.")
@@ -915,6 +919,7 @@ class ProjectViewerApp(tk.Tk):
                 self.showerror("Error", f"Could not save project completely:\n{e}\nlast image moved is: {fname}")
         else:
             project_txt_path = None
+        self.label_entry.focus_set()                 # Set keyboard focus to the labeling box for better UX
         return project_txt_path
 
     def Auto_save_project(self):
@@ -1375,7 +1380,7 @@ class ProjectViewerApp(tk.Tk):
 
         self.delete_button = ttk.Button(self.delet_frame, text="Delete Box", padding=0,  command=self.delete_rectangle)
         self.delete_button.pack(side=tk.TOP, padx=5, pady=(2,0))
-        ToolTip(self.delete_button, "Deletes BBox of selected object if unLocked.\n\nBut you cam .:Right Click:. on Locked BBoxs and delete them.", self) 
+        ToolTip(self.delete_button, "Deletes BBox of selected object if unLocked.\n\nBut you can .:Right Click:. on Locked BBoxs and delete them.", self) 
 
         self.IoU_Button = ttk.Button(self.edit_frame, text=f"IoU Treshold {int(self.IoU_Threshold*100):d}%", padding=0, command=self.Change_IoU_threshold, width=18)
         self.IoU_Button.pack(side=tk.BOTTOM, padx=0)
@@ -1590,7 +1595,10 @@ class ProjectViewerApp(tk.Tk):
         self.rect = None  # Reset rectangle ID
         # Reset all rectangles to their original color (if needed)
         if self.rect_index != None:
-            self.canvas.itemconfig(self.rec_IDs[self.rect_index], outline="blue")  # Reset to original color
+            if self.project_data["IsLocks"][self.project_data["images"][self.img_index]][self.rect_index]:
+                self.canvas.itemconfig(self.rec_IDs[self.rect_index], outline="blue")  # Reset to original color
+            else:
+                self.canvas.itemconfig(self.rec_IDs[self.rect_index], outline="dodgerblue")  # Reset to original color
 
     def on_mouse_drag(self, event):
         if self.image_tk == None:
@@ -1656,7 +1664,10 @@ class ProjectViewerApp(tk.Tk):
                     # add id to the new rectangle
                     self.rec_IDs.insert(self.rect_index + 1, self.rect)
                     # Reset all rectangles to their original color (if needed)
-                    self.canvas.itemconfig(self.rec_IDs[self.rect_index], outline="blue")  # Reset to original color
+                    if self.project_data["IsLocks"][self.project_data["images"][self.img_index]][self.rect_index]:
+                        self.canvas.itemconfig(self.rec_IDs[self.rect_index], outline="blue")  # Reset to original color
+                    else:
+                        self.canvas.itemconfig(self.rec_IDs[self.rect_index], outline="dodgerblue")  # Reset to original color
                     self.rect_index += 1
                 else:
                     self.showerror('Error', 'Something is going wrong. code 2112455')
@@ -2080,7 +2091,6 @@ class ProjectViewerApp(tk.Tk):
             self.lb1.selection_set(self.img_index)              # Select the first item (index 0)
             self.lb1.activate(self.img_index)                  # Set the active item to the first one
             self.lb1.see(self.img_index)                      # Scroll to make sure the first item is visible
-            self.lb1.focus_set()                 # Set keyboard focus to the listbox for better UX                
 
             fname = self.project_data["images"][self.img_index]
             self.image_full_path = os.path.join(self.project_data["image_folder"], fname).replace("\\",  "/")
@@ -2255,9 +2265,9 @@ class ProjectViewerApp(tk.Tk):
                 x2 = int(rel_end_x * canvas_width)
                 y2 = int(rel_end_y * canvas_height)
                 if self.project_data["IsLocks"][self.project_data["images"][self.img_index]][idx]:
-                    new_id = self.canvas.create_rectangle(x1 - 1, y1 - 1, x2, y2, outline="blue", width=2)
+                    new_id = self.canvas.create_rectangle(x1 - 1, y1 - 1, x2 + 1, y2 + 1, outline="blue", width=2)
                 else:
-                    new_id = self.canvas.create_rectangle(x1 - 1, y1 - 1, x2, y2, outline="yellow", width=2)
+                    new_id = self.canvas.create_rectangle(x1 - 1, y1 - 1, x2+ 1, y2 + 1, outline="dodgerblue", width=2)
                 rec_ids.append(new_id)
             
             self.rec_IDs = rec_ids
@@ -2459,27 +2469,35 @@ class ProjectViewerApp(tk.Tk):
             return
         fname = self.project_data["images"][self.img_index]
 
-        response = self.askyesnocancel(
-            title='Sort Direction?',
-            message='(YES) The annotations should be sorted vertically (top to bottom)\n\n(NO) The annotations should be sorted horizontally (right to left)',
-            icon='question'
-            )
-        if response == True:
-            direction  = 3 # Vertically
-        elif response == False:
-            direction  = 2 # Horisontally
-        else:
+        # نمایش پنجره انتخاب جهت مرتب‌سازی
+        sort_choice = self.ask_sort_direction()
+        
+        # اگر کاربر کنسل کرد، خروج
+        if sort_choice is None:
             return
-
+        
+        # نگاشت انتخاب به جهت و ترتیب
+        direction_map = {
+            0: (1, False),  # بالا به پایین (عمودی)
+            1: (3, True),   # پایین به بالا (عمودی معکوس)
+            2: (0, False),  # چپ به راست (افقی)
+            3: (2, True)    # راست به چپ (افقی معکوس)
+        }
+        
+        direction, reverse = direction_map[sort_choice]
+        
         self.rectangles = self.project_data["rectangles"][fname]
         coord_list = []
         for rec in self.rectangles:
             coord_list.append(list(rec)[direction])
+        
         if self.rectangles != []:
-            if response == True:
-                sorted_indices = np.argsort(coord_list) # Vertically
-            elif response == False:
-                sorted_indices = np.argsort(coord_list)[::-1] # Horisontally
+            # مرتب‌سازی بر اساس مختصات
+            sorted_indices = np.argsort(coord_list)
+            
+            # اگر reverse=True بود، لیست را برعکس می‌کنیم
+            if reverse:
+                sorted_indices = sorted_indices[::-1]
             
             # تبدیل به لیست معمولی پایتون
             sorted_indices_list = sorted_indices.tolist()
@@ -2490,24 +2508,153 @@ class ProjectViewerApp(tk.Tk):
 
             self.rect_index = 0
             self.draw_rectamgles()
-            self.populate_rectangle_list()  # Populate the rectangle list
+            self.populate_rectangle_list()
             self.update_edit_panel_and_image_crop()
-            self.label_entry.focus_set()                 # Set keyboard focus to the labeling box for better UX                
-            self.label_entry.icursor(tk.END)  # Move cursor to end of text
 
-            if response == True:
-                self.showinfo('Success', 'List is successfully sorted vertically.')  # Vertically
-            elif response == False:
-                self.showinfo('Success', 'List is successfully sorted horisontally.') # Horisontally
+            # نمایش پیام موفقیت
+            direction_names = [
+                "sorted vertically (top to bottom)",
+                "sorted vertically (bottom to top)",
+                "sorted horizontally (left to right)",
+                "sorted horizontally (right to left)"
+            ]
+            self.showinfo('Success', f'List is successfully {direction_names[sort_choice]}.')
 
-            self.label_entry.focus_set()      # Set keyboard focus to the labeling box for better UX                
-            self.label_entry.icursor(tk.END)  # Move cursor to end of text
+            self.label_entry.focus_set()
+            self.label_entry.icursor(tk.END)
 
         else:
             self.rect_index = None
             self.showerror('Error', 'List is empty.')
             return
+
+    def ask_sort_direction(self):
+        """
+        - 0: (vertical, top to bottom)
+        - 1: (vertical, bottom to top)
+        - 2: (horizontal, left to right)
+        - 3: (horizontal, right to left)
+        - None: Canceled
+        """
         
+        self.attributes('-disabled', True)
+        
+        dialog = tk.Toplevel(self)
+        dialog.title("Sort Direction")
+        dialog.geometry("300x220")
+        dialog.resizable(False, False)
+        
+        # قرار دادن دیالوگ وسط پنجره اصلی
+        dialog.update_idletasks()
+        x = self.winfo_x() + (self.winfo_width() // 2) - (300 // 2)
+        y = self.winfo_y() + (self.winfo_height() // 2) - (220 // 2)
+        dialog.geometry(f"+{x}+{y}")
+        
+        dialog.transient(self)
+        dialog.focus_force()
+        dialog.configure(bg='#FFFFFF')
+        
+        # متغیر برای ذخیره نتیجه
+        result = [None]
+        
+        # فریم اصلی با padding
+        main_frame = ttk.Frame(dialog, padding=15)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # عنوان
+        title_label = tk.Label(
+            main_frame,
+            text="Select Sort Direction",
+            font=('Segoe UI', 12, 'bold'),
+            bg='#FFFFFF'
+        )
+        title_label.pack(pady=(0, 5))
+        
+        # فریم برای دکمه‌های رادیویی
+        radio_frame = ttk.Frame(main_frame)
+        radio_frame.pack(fill=tk.BOTH, expand=True, pady=5)
+        
+        # متغیر برای انتخاب
+        selected = tk.IntVar(value=-1)
+        
+        # گزینه‌ها به صورت دکمه رادیویی
+        options = [
+            (0, "⬇️⬇️\tTop to Bottom"),
+            (1, "⬆️⬆️\tBottom to Top"),
+            (2, "➡️➡️\tLeft to Right"),
+            (3, "⬅️⬅️\tRight to Left")
+        ]
+
+        selected = tk.IntVar(value=options[2][0])  # ← اینجا گزینه سوم فعال می‌شود
+        for value, text in options:
+            frame = ttk.Frame(radio_frame)
+            frame.pack(fill=tk.X, pady=0)
+            
+            rb = tk.Radiobutton(
+                frame,
+                text=text,
+                value=value,
+                variable=selected,
+                bg='white',  # رنگ پس‌زمینه
+                activebackground='white',  # رنگ پس‌زمینه هنگام کلیک
+            )
+            rb.pack(side=tk.LEFT, padx=40)
+        
+        # تابع برای بستن پنجره با نتیجه
+        def on_confirm():
+            result[0] = selected.get()
+            self.attributes('-disabled', False)
+            self.focus_force()
+            dialog.destroy()
+        
+        def on_cancel():
+            result[0] = None
+            self.attributes('-disabled', False)
+            self.focus_force()
+            dialog.destroy()
+        
+        def do_destroy(event=None):
+            on_cancel()
+        
+        # فریم دکمه‌ها
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=(10, 0))
+        
+        # دکمه OK
+        ok_btn = ttk.Button(
+            button_frame,
+            text="Sort",
+            command=on_confirm,
+            width=12
+        )
+        ok_btn.pack(side=tk.LEFT)
+
+        # دکمه Cancel
+        cancel_btn = ttk.Button(
+            button_frame,
+            text="Cancel",
+            command=on_cancel,
+            width=12
+        )
+        cancel_btn.pack(side=tk.RIGHT)
+        
+
+        
+        # فوکوس پیش‌فرض روی دکمه Sort
+        ok_btn.focus_set()
+        
+        # کلید Enter برای OK
+        dialog.bind('<Return>', lambda e: on_confirm())
+        
+        # کلید Escape برای Cancel
+        dialog.bind('<Escape>', do_destroy)
+        
+        dialog.protocol("WM_DELETE_WINDOW", do_destroy)
+        
+        # منتظر ماندن برای بسته شدن پنجره
+        dialog.wait_window()
+        
+        return result[0]
 
     def on_rectangle_right_click(self, event):
         # Identify the clicked image item index
@@ -2821,80 +2968,142 @@ class ProjectViewerApp(tk.Tk):
             self.disable_frame()
     
     def go_next(self):
-        if self.rect_index != None:
-            start_point = list((self.rect_index, self.img_index))
-            current_point = list((self.rect_index + 1, self.img_index))
-            self.rectangles = self.project_data["rectangles"][self.project_data["images"][current_point[1]]]
-            while True:
-                self.rectangles = self.project_data["rectangles"][self.project_data["images"][current_point[1]]]
-                if current_point[0] >= len(self.rectangles):
-                    current_point[0] = 0
-                    current_point[1] += 1
-                if current_point[1] >= len(self.project_data["images"]):
-                    current_point[1] = 0
-                self.rectangles = self.project_data["rectangles"][self.project_data["images"][current_point[1]]]
-                self.IsLocks = self.project_data["IsLocks"][self.project_data["images"][current_point[1]]]
-                self.Labels = self.project_data["Labels"][self.project_data["images"][current_point[1]]]
-                if self.IsLocks == []:
-                    current_point[0] = 0
-                    current_point[1] += 1
-                    continue
-                if not self.IsLocks[current_point[0]] or True:  # delete or True if you want to move just on unlocked rects
-                    self.img_index = current_point[1]
-                    self.rect_index = current_point[0]
-                    self.rec_islock = self.IsLocks[current_point[0]]
-                    self.coords = self.rectangles[current_point[0]]
-                    self.Rec_Label = self.Labels[current_point[0]]  # Copy for editing
-                    self.populate_rectangle_list()
-                    if current_point[1] != start_point[1]:
-                        self.crop_cords = list((0, 0, 1, 1))
-                        self.zoom_factor = 1
-                        self.display_image() # Your method to display the image number self.img_index
-                    self.draw_rectamgles()
-                    self.update_rectangle_preview()
-                    self.label_entry.focus_set()                 # Set keyboard focus to the labeling box for better UX                
-                    self.label_entry.icursor(tk.END)  # Move cursor to end of text
-                    return
+        # ========== مرحله 0: بررسی و قفل کردن مستطیل فعلی ==========
+        if self.img_index is None:
+            self.showerror("Error", "No image is selected.")
+            return
+            
+        total_images = len(self.project_data["images"])
+
+        Found_flag = False
+        # ========== مرحله 1: از مستطیل فعلی تا آخر لیست مستطیل‌ها در تصویر فعلی ==========
+        fname = self.project_data["images"][self.img_index]
+        isLocks = self.project_data["IsLocks"][fname]
+        
+        # اگر تصویر فعلی مستطیل دارد، از مستطیل بعدی تا آخر بررسی کن
+        if self.rect_index is not None and self.rect_index < len(isLocks) - 1:
+            # مستطیل غیرقفل پیدا شد
+            self.rect_index += 1
+            Found_flag = True
+        
+        # ========== مرحله 2: از اولین تصویر بعدی تا آخرین تصویر (چرخشی) ==========
+        next_img_index = (self.img_index + 1) % total_images
+        while Found_flag == False and next_img_index != self.img_index:
+            fname = self.project_data["images"][next_img_index]
+            isLocks = self.project_data["IsLocks"][fname]
+            
+            # اگر تصویر مستطیل داشت، از اول لیست مستطیل‌ها شروع کن
+            if isLocks != []:
+                # مستطیل غیرقفل پیدا شد
+                self.img_index = next_img_index
+                self.rect_index = 0
+                Found_flag = True
+                break
+            # رفتن به تصویر بعدی
+            next_img_index = (next_img_index + 1) % total_images
+        
+        # ========== مرحله 3: از اول لیست مستطیل‌ها تا مستطیل فعلی در تصویر فعلی ==========
+        if Found_flag == False:
+            fname = self.project_data["images"][self.img_index]
+            isLocks = self.project_data["IsLocks"][fname]
+            # اگر تصویر فعلی مستطیل دارد و مستطیل فعلی معتبر است، از اول تا مستطیل فعلی بررسی کن
+            if isLocks != [] and self.rect_index > 0:
+                # مستطیل غیرقفل پیدا شد
+                self.rect_index = 0
+                Found_flag = True
+
+        # اگر مستطیل جدیدی پیدا شده بود
+        if Found_flag == True:
+            self.rectangles = self.project_data["rectangles"][self.project_data["images"][self.img_index]]
+            self.IsLocks = self.project_data["IsLocks"][self.project_data["images"][self.img_index]]
+            self.Labels = self.project_data["Labels"][self.project_data["images"][self.img_index]]
+            self.populate_rectangle_list()
+
+            # activate first image
+            self.lb1.selection_clear(0, tk.END)    # Clear any previous selection
+            self.lb1.selection_set(self.img_index)              # Select the first item (index 0)
+            self.lb1.activate(self.img_index)                  # Set the active item to the first one
+            self.lb1.see(self.img_index)                      # Scroll to make sure the first item is visible
+            self.crop_cords = list((0, 0, 1, 1))
+            self.zoom_factor = 1
+            self.display_image() # Your method to display the image number self.img_index
+            self.draw_rectamgles()
+            self.update_edit_panel_and_image_crop()
+            self.label_entry.focus_set()                 # Set keyboard focus to the labeling box for better UX                
+            self.label_entry.icursor(tk.END)  # Move cursor to end of text
         else:
-            self.go_next_image()
+            self.showinfo("Info", "No next BBox found.")  
+            self.label_entry.focus_set()                 # Set keyboard focus to the labeling box for better UX                
+            self.label_entry.icursor(tk.END)  # Move cursor to end of text
 
     def go_back(self):
-        if self.rect_index  != None:
-            start_point = list((self.rect_index, self.img_index))
-            current_point = list((self.rect_index - 1, self.img_index))
-            self.rectangles = self.project_data["rectangles"][self.project_data["images"][current_point[1]]]
-            while True:
-                if current_point[0] < 0:
-                    current_point[1] -= 1
-                if current_point[1] < 0:
-                    current_point[1] = len(self.project_data["images"]) - 1
-                self.rectangles = self.project_data["rectangles"][self.project_data["images"][current_point[1]]]
-                self.IsLocks = self.project_data["IsLocks"][self.project_data["images"][current_point[1]]]
-                self.Labels = self.project_data["Labels"][self.project_data["images"][current_point[1]]]
-                if current_point[0] < 0:
-                    current_point[0] = len(self.rectangles) - 1
-                if self.IsLocks == []:
-                    continue
-                if not self.IsLocks[current_point[0]] or True:  # delete or True if you want to move just on unlocked rects
-                    self.img_index = current_point[1]
-                    self.rect_index = current_point[0]
-                    self.rec_islock = self.IsLocks[current_point[0]]
-                    self.coords = self.rectangles[current_point[0]]
-                    self.Rec_Label = self.Labels[current_point[0]]  # Copy for editing
-                    self.populate_rectangle_list()
-                    if current_point[1] != start_point[1]:
-                        self.crop_cords = list((0, 0, 1, 1))
-                        self.zoom_factor = 1
-                        self.display_image() # Your method to display the image number self.img_index
-                    self.draw_rectamgles()
-                    # self.update_edit_panel_and_image_crop()
-                    self.update_edit_panel_and_image_crop()
-                    self.label_entry.focus_set()                 # Set keyboard focus to the labeling box for better UX                
-                    self.label_entry.icursor(tk.END)  # Move cursor to end of text
-                    return
-        else:
-            self.go_back_image()
+        # ========== مرحله 0: بررسی ==========
+        if self.img_index is None:
+            self.showerror("Error", "No image is selected.")
+            return
+            
+        total_images = len(self.project_data["images"])
+        Found_flag = False
+        
+        # ========== مرحله 1: از مستطیل فعلی تا اول لیست مستطیل‌ها در تصویر فعلی ==========
+        fname = self.project_data["images"][self.img_index]
+        isLocks = self.project_data["IsLocks"][fname]
+        
+        # اگر مستطیل فعلی معتبر است و به عقب برمی‌گردیم
+        if self.rect_index is not None and self.rect_index > 0:
+            # مستطیل قبلی پیدا شد
+            self.rect_index -= 1
+            Found_flag = True
+        
+        # ========== مرحله 2: از اولین تصویر قبلی تا اولین تصویر (چرخشی معکوس) ==========
+        prev_img_index = (self.img_index - 1) % total_images
+        while Found_flag == False and prev_img_index != self.img_index:
+            fname = self.project_data["images"][prev_img_index]
+            isLocks = self.project_data["IsLocks"][fname]
+            
+            # اگر تصویر مستطیل داشت، از آخر لیست مستطیل‌ها شروع کن
+            if isLocks != []:
+                # مستطیل غیرقفل پیدا شد (آخرین مستطیل تصویر قبلی)
+                self.img_index = prev_img_index
+                self.rect_index = len(isLocks) - 1
+                Found_flag = True
+                break
+            # رفتن به تصویر قبلی
+            prev_img_index = (prev_img_index - 1) % total_images
+        
+        # ========== مرحله 3: از آخر لیست مستطیل‌ها تا مستطیل فعلی در تصویر فعلی ==========
+        if Found_flag == False:
+            fname = self.project_data["images"][self.img_index]
+            isLocks = self.project_data["IsLocks"][fname]
+            # اگر تصویر فعلی مستطیل دارد، از آخر تا مستطیل فعلی بررسی کن
+            if isLocks != [] and self.rect_index is not None and self.rect_index < len(isLocks) - 1:
+                # مستطیل غیرقفل پیدا شد (آخرین مستطیل)
+                self.rect_index = len(isLocks) - 1
+                Found_flag = True
 
+        # اگر مستطیل جدیدی پیدا شده بود
+        if Found_flag == True:
+            self.rectangles = self.project_data["rectangles"][self.project_data["images"][self.img_index]]
+            self.IsLocks = self.project_data["IsLocks"][self.project_data["images"][self.img_index]]
+            self.Labels = self.project_data["Labels"][self.project_data["images"][self.img_index]]
+            self.populate_rectangle_list()
+
+            # activate image in listbox
+            self.lb1.selection_clear(0, tk.END)
+            self.lb1.selection_set(self.img_index)
+            self.lb1.activate(self.img_index)
+            self.lb1.see(self.img_index)
+            self.crop_cords = list((0, 0, 1, 1))
+            self.zoom_factor = 1
+            self.display_image()
+            self.draw_rectamgles()
+            self.update_edit_panel_and_image_crop()
+            self.label_entry.focus_set()                 # Set keyboard focus to the labeling box for better UX                
+            self.label_entry.icursor(tk.END)  # Move cursor to end of text
+        else:
+            self.showinfo("Info", "No previous rectangle found.")
+            self.label_entry.focus_set()                 # Set keyboard focus to the labeling box for better UX                
+            self.label_entry.icursor(tk.END)  # Move cursor to end of text
 
     def go_next_image(self):
         if self.img_index != None:
@@ -2947,50 +3156,87 @@ class ProjectViewerApp(tk.Tk):
             self.label_entry.icursor(tk.END)  # Move cursor to end of text
 
     def Lock_and_go_next(self):
-        if self.rect_index  != None:
-            self.rec_islock = True
-            self.IsLocks[self.rect_index] = self.rec_islock
+        # ========== مرحله 0: بررسی و قفل کردن مستطیل فعلی ==========
+        if self.img_index is None:
+            self.showerror("Error", "No image is selected.")
+            return
+        
+        # اگر مستطیل فعلی معتبر است و قفل نیست، قفل کن
+        if self.rect_index != None and self.IsLocks[self.rect_index] == False:
+            self.IsLocks[self.rect_index] = True
             self.project_data["IsLocks"][self.project_data["images"][self.img_index]] = self.IsLocks
-            # Refresh rectangle list and redraw canvas rectangles
             self.populate_rectangle_list()
             self.disable_frame()
+        
+        total_images = len(self.project_data["images"])
 
-            start_point = list((self.rect_index, self.img_index))
-            current_point = list((self.rect_index + 1, self.img_index))
-            self.rectangles = self.project_data["rectangles"][self.project_data["images"][current_point[1]]]
-            while True:
-                if current_point[0] >= len(self.rectangles):
-                    current_point[0] = 0
-                    current_point[1] += 1
-                if current_point[1] >= len(self.project_data["images"]):
-                    current_point[1] = 0
-                self.rectangles = self.project_data["rectangles"][self.project_data["images"][current_point[1]]]
-                self.IsLocks = self.project_data["IsLocks"][self.project_data["images"][current_point[1]]]
-                self.Labels = self.project_data["Labels"][self.project_data["images"][current_point[1]]]
-                if self.IsLocks == []:
-                    current_point[0] = 0
-                    current_point[1] += 1
-                    continue
-                if not self.IsLocks[current_point[0]]:
-                    self.img_index = current_point[1]
-                    self.rect_index = current_point[0]
-                    self.rec_islock = self.IsLocks[current_point[0]]
-                    self.coords = self.rectangles[current_point[0]]
-                    self.Rec_Label = self.Labels[current_point[0]]  # Copy for editing
-                    self.populate_rectangle_list()
-                    if current_point[1] != start_point[1]:
-                        self.display_image() # Your method to display the image number self.img_index
-                        self.Auto_save_project()
-                    self.draw_rectamgles()
-                    # self.update_edit_panel_and_image_crop()
-                    self.update_rectangle_preview()
-                    self.label_entry.focus_set()                 # Set keyboard focus to the labeling box for better UX                
-                    self.label_entry.icursor(tk.END)  # Move cursor to end of text
-                    return
-                if current_point == start_point:
-                    self.Lockandgo_button.config(state='disabled')
-                    return                
-                current_point[0] += 1  
+        Found_flag = False
+        # ========== مرحله 1: از مستطیل فعلی تا آخر لیست مستطیل‌ها در تصویر فعلی ==========
+        fname = self.project_data["images"][self.img_index]
+        isLocks = self.project_data["IsLocks"][fname]
+        
+        # اگر تصویر فعلی مستطیل دارد، از مستطیل بعدی تا آخر بررسی کن
+        if isLocks != [] and self.rect_index is not None:
+            for i in range(self.rect_index + 1, len(isLocks)):
+                if not isLocks[i]:
+                    # مستطیل غیرقفل پیدا شد
+                    self.rect_index = i
+                    Found_flag = True
+                    break
+        
+        # ========== مرحله 2: از اولین تصویر بعدی تا آخرین تصویر (چرخشی) ==========
+        next_img_index = (self.img_index + 1) % total_images
+        while Found_flag == False and next_img_index != self.img_index:
+            fname = self.project_data["images"][next_img_index]
+            isLocks = self.project_data["IsLocks"][fname]
+            
+            # اگر تصویر مستطیل داشت، از اول لیست مستطیل‌ها شروع کن
+            if isLocks != []:
+                for i in range(len(isLocks)):
+                    if not isLocks[i]:
+                        # مستطیل غیرقفل پیدا شد
+                        self.img_index = next_img_index
+                        self.rect_index = i
+                        Found_flag = True
+                        break
+            # رفتن به تصویر بعدی
+            next_img_index = (next_img_index + 1) % total_images
+        
+        # ========== مرحله 3: از اول لیست مستطیل‌ها تا مستطیل فعلی در تصویر فعلی ==========
+        if Found_flag == False:
+            fname = self.project_data["images"][self.img_index]
+            isLocks = self.project_data["IsLocks"][fname]
+            # اگر تصویر فعلی مستطیل دارد و مستطیل فعلی معتبر است، از اول تا مستطیل فعلی بررسی کن
+            if isLocks != [] and self.rect_index is not None:
+                for i in range(0, self.rect_index):
+                    if not isLocks[i]:
+                        # مستطیل غیرقفل پیدا شد
+                        self.rect_index = i
+                        Found_flag = True
+                        break
+
+        # اگر مستطیل جدیدی پیدا شده بود
+        if Found_flag == True:
+            self.rectangles = self.project_data["rectangles"][self.project_data["images"][self.img_index]]
+            self.IsLocks = self.project_data["IsLocks"][self.project_data["images"][self.img_index]]
+            self.Labels = self.project_data["Labels"][self.project_data["images"][self.img_index]]
+            self.populate_rectangle_list()
+
+            # activate first image
+            self.lb1.selection_clear(0, tk.END)    # Clear any previous selection
+            self.lb1.selection_set(self.img_index)              # Select the first item (index 0)
+            self.lb1.activate(self.img_index)                  # Set the active item to the first one
+            self.lb1.see(self.img_index)                      # Scroll to make sure the first item is visible
+            self.crop_cords = list((0, 0, 1, 1))
+            self.zoom_factor = 1
+            self.display_image() # Your method to display the image number self.img_index
+            self.draw_rectamgles()
+            self.update_edit_panel_and_image_crop()
+            self.label_entry.icursor(tk.END)  # Move cursor to end of text
+        else:
+            self.Lockandgo_button.config(state='disabled')
+            self.label_entry.focus_set()                 # Set keyboard focus to the labeling box for better UX                
+            self.label_entry.icursor(tk.END)  # Move cursor to end of text
 
     def UnLock(self):
         if self.rect_index  != None:
@@ -3258,15 +3504,15 @@ class ProjectViewerApp(tk.Tk):
             self.crop_canvas.create_image(canvas_width // 2, canvas_height // 2, anchor=tk.CENTER, image=cropped_img_tk)
             self.crop_canvas.image = cropped_img_tk  # Keep a reference to prevent garbage collection
             self.crop_canvas.create_text(canvas_width // 2 - 1, canvas_height // 2 - 1, text=self.Rec_Label, 
-                                 fill="white", font=("Times New Roman", 18, "bold"))
+                                 fill="white", font=("Times New Roman", 22, "bold"))
             self.crop_canvas.create_text(canvas_width // 2 + 1, canvas_height // 2 - 1, text=self.Rec_Label, 
-                                 fill="white", font=("Times New Roman", 18, "bold"))
+                                 fill="white", font=("Times New Roman", 22, "bold"))
             self.crop_canvas.create_text(canvas_width // 2 - 1, canvas_height // 2 + 1, text=self.Rec_Label, 
-                                 fill="white", font=("Times New Roman", 18, "bold"))
+                                 fill="white", font=("Times New Roman", 22, "bold"))
             self.crop_canvas.create_text(canvas_width // 2 + 1, canvas_height // 2 + 1, text=self.Rec_Label, 
-                                 fill="white", font=("Times New Roman", 18, "bold"))
+                                 fill="white", font=("Times New Roman", 22, "bold"))
             self.crop_canvas.create_text(canvas_width // 2, canvas_height // 2, text=self.Rec_Label, 
-                                 fill="blue", font=("Times New Roman", 18, "bold"))
+                                 fill="blue", font=("Times New Roman", 22, "bold"))
 
             if self.rec_islock:
                 self.disable_frame()
@@ -3330,7 +3576,7 @@ class ProjectViewerApp(tk.Tk):
                 if yolo_dataset != []: # ذخیره محتوای هر فایل تصویری در یک فایل متنی
                     # Copy the image and generate .txt file           
                     new_path = os.path.join(destination, image).replace("\\",  "/")
-                    img.save(new_path, quality=95)  
+                    img.save(new_path, quality=100)  
 
                     # ایجاد نام فایل متنی با پسوند .txt
                     txt_filename = os.path.splitext(filename)[0] + '.txt'
@@ -3800,7 +4046,6 @@ class ProjectViewerApp(tk.Tk):
             self.lb1.selection_set(self.img_index)              # Select the first item (index 0)
             self.lb1.activate(self.img_index)                  # Set the active item to the first one
             self.lb1.see(self.img_index)                      # Scroll to make sure the first item is visible
-            self.lb1.focus_set()                 # Set keyboard focus to the listbox for better UX                
             self.display_image() # Your method to display the image number self.img_index
             self.draw_rectamgles()
             self.update_edit_panel_and_image_crop()
@@ -4024,7 +4269,7 @@ class ProjectViewerApp(tk.Tk):
                 # results[0].save_txt(result_file_path, False)
 
                 # مرتب‌سازی بر اساس مختصات x مرکز
-                sorted_indices = np.argsort(prediction_coords[:, 0])[::-1]
+                sorted_indices = np.argsort(prediction_coords[:, 0])[::+1]
                 prediction_coords = prediction_coords[sorted_indices]   
                 classs = classs[sorted_indices].astype(int)   
                 if len(classs) > 0:
@@ -4088,7 +4333,7 @@ class ProjectViewerApp(tk.Tk):
                         # results[0].save_txt(result_file_path, False)
 
                         # مرتب‌سازی بر اساس مختصات x مرکز
-                        sorted_indices = np.argsort(prediction_coords[:, 0])[::-1]
+                        sorted_indices = np.argsort(prediction_coords[:, 0])[::+1]
                         prediction_coords = prediction_coords[sorted_indices]   
                         classs = classs[sorted_indices].astype(int)   
                         if len(classs) > 0:
@@ -4182,7 +4427,7 @@ class ProjectViewerApp(tk.Tk):
                 names = results[0].names
 
                 # مرتب‌سازی بر اساس مختصات x مرکز
-                sorted_indices = np.argsort(prediction_coords[:, 0])[::-1]
+                sorted_indices = np.argsort(prediction_coords[:, 0])[::+1]
                 prediction_coords = prediction_coords[sorted_indices]   
                 classs = classs[sorted_indices].astype(int)  
 
@@ -4279,7 +4524,7 @@ class ProjectViewerApp(tk.Tk):
                     names = results[0].names
 
                     # مرتب‌سازی بر اساس مختصات x مرکز
-                    sorted_indices = np.argsort(prediction_coords[:, 0])[::-1]
+                    sorted_indices = np.argsort(prediction_coords[:, 0])[::+1]
                     prediction_coords = prediction_coords[sorted_indices]   
                     classs = classs[sorted_indices].astype(int)  
 
